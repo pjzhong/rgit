@@ -11,6 +11,10 @@ pub struct Cli {
 pub enum Commands {
     /// Init a rgit repository
     Init,
+    #[command(name = "hash-object")]
     /// hash the file
     HashObject { file: String },
+    /// cat the file
+    #[command(name = "cat-file")]
+    CatFile { object: String },
 }

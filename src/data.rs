@@ -1,6 +1,6 @@
 use std::env;
 use std::fs::{create_dir, File};
-use std::io::Write;
+use std::io::{Error, Read, Write};
 use std::path::PathBuf;
 
 use crypto::digest::Digest;
@@ -33,5 +33,21 @@ pub fn hash(bytes: &[u8]) {
             }
         }
         Err(r) => eprintln!("open file:{:?} err:{:?}", current_dir, r),
+    }
+}
+
+pub fn get_object(oid: &str) -> Result<String, Error> {
+    let current_dir = env::current_dir().expect("failed to obtain current dir");
+    let current_dir: PathBuf = current_dir.join(GIT_DIR).join(oid);
+
+    match File::open(current_dir) {
+        Ok(mut f) => {
+            let mut buffer = String::new();
+            match f.read_to_string(&mut buffer) {
+                Ok(_) => Ok(buffer),
+                Err(e) => Err(e),
+            }
+        }
+        Err(e) => Err(e),
     }
 }

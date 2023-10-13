@@ -21,5 +21,9 @@ fn main() {
             }
             Err(e) => eprintln!("open {} file err:{}", file, e),
         },
+        Commands::CatFile { object } => match data::get_object(&object) {
+            Ok(str) => println!("{}", str),
+            Err(e) => eprintln!("get object:{:?}, err:{:?}", object, e),
+        },
     }
 }
