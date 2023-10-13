@@ -11,4 +11,6 @@ pub struct Cli {
 pub enum Commands {
     /// Init a rgit repository
     Init,
+    /// hash the file
+    HashObject { file: String },
 }
