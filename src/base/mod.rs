@@ -1,7 +1,7 @@
 use std::{path::PathBuf, fs};
 
 pub fn write_tree(directory: PathBuf) {
-    let mut dirs = vec![fs::read_dir(directory)];
+    let mut dirs = vec![directory.read_dir()];
 
     while !dirs.is_empty() {
         let dir =  match dirs.pop() {
@@ -11,12 +11,25 @@ pub fn write_tree(directory: PathBuf) {
 
         for path in dir.filter_map(Result::ok) {
             let path = path.path();
+            if is_ignored(&path) {
+                continue;
+            }
+
             if path.is_file() {
                 println!("{:?}", path);
             } else {
-                dirs.push(fs::read_dir(path));
+                dirs.push(path.read_dir());
             }
         }
     }
-    
+}
+
+fn is_ignored(path: &PathBuf) -> bool {
+    for component in path.iter() {
+        if component == ".ugit" {
+            return true;
+        }
+    }
+
+    return false;
 }
