@@ -3,7 +3,7 @@ use std::{fs::File, io::Read};
 use clap::Parser;
 use rgit::{
     cli::{Cli, Commands},
-    data,
+    data, base,
 };
 
 fn main() {
@@ -25,5 +25,6 @@ fn main() {
             Ok(str) => println!("{}", str),
             Err(e) => eprintln!("get object:{:?}, err:{:?}", object, e),
         },
+        Commands::WriteTree { dir } => base::write_tree(dir.into()),
     }
 }
