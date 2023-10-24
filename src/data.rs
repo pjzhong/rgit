@@ -8,6 +8,12 @@ use crypto::sha1::Sha1;
 
 pub const GIT_DIR: &str = ".rgit";
 
+#[derive(Debug)]
+pub enum DateErr {
+    ContentMisMatch(String),
+    Io(Error),
+}
+
 pub fn init() {
     let current_dir = env::current_dir().expect("failed to obtain current dir");
     let current_dir: PathBuf = current_dir.join(GIT_DIR);
@@ -19,7 +25,21 @@ pub fn init() {
     }
 }
 
-pub fn hash(bytes: &[u8]) {
+pub enum DataType {
+    None,
+    Blob,
+}
+
+impl From<&DataType> for String {
+    fn from(value: &DataType) -> Self {
+        match value {
+            DataType::None => String::from("None"),
+            DataType::Blob => String::from("Blob"),
+        }
+    }
+}
+
+pub fn hash(bytes: &[u8], ty: DataType) {
     let mut haser = Sha1::new();
     haser.input(bytes);
     let hex = haser.result_str();
@@ -28,7 +48,16 @@ pub fn hash(bytes: &[u8]) {
     let current_dir: PathBuf = current_dir.join(GIT_DIR).join(hex);
     match File::create(&current_dir) {
         Ok(mut f) => {
-            if let Err(e) = f.write_all(bytes) {
+            let mut datas: Vec<u8> = vec![];
+            let str: String = (&ty).into();
+            for u in str.as_bytes() {
+                datas.push(*u);
+            }
+            datas.push(b'\x00');
+            for u in bytes {
+                datas.push(*u);
+            }
+            if let Err(e) = f.write_all(&datas) {
                 eprintln!("write to {:?} err:{:?}", current_dir, e);
             }
         }
@@ -36,18 +65,41 @@ pub fn hash(bytes: &[u8]) {
     }
 }
 
-pub fn get_object(oid: &str) -> Result<String, Error> {
+pub fn get_object(oid: &str, expected: DataType) -> Result<String, DateErr> {
     let current_dir = env::current_dir().expect("failed to obtain current dir");
     let current_dir: PathBuf = current_dir.join(GIT_DIR).join(oid);
 
-    match File::open(current_dir) {
+    let obj = match File::open(current_dir) {
         Ok(mut f) => {
-            let mut buffer = String::new();
-            match f.read_to_string(&mut buffer) {
-                Ok(_) => Ok(buffer),
-                Err(e) => Err(e),
+            let mut buffer = vec![];
+            match f.read_to_end(&mut buffer) {
+                Ok(_) => buffer,
+                Err(e) => return Err(DateErr::Io(e)),
             }
         }
-        Err(e) => Err(e),
+        Err(e) => return Err(DateErr::Io(e)),
+    };
+
+    let (ty, content) = {
+        let bytes = obj.splitn(2, |v| v == &b'\x00').collect::<Vec<_>>();
+        (
+            String::from_utf8_lossy(bytes[0]).to_string(),
+            String::from_utf8_lossy(bytes[1]).to_string(),
+        )
+    };
+
+    let expect_str: String = (&expected).into();
+    match expected {
+        DataType::None => Ok(content),
+        _ => {
+            if expect_str != ty {
+                Err(DateErr::ContentMisMatch(format!(
+                    "found:{}, expected:{}",
+                    ty, expect_str
+                )))
+            } else {
+                Ok(content)
+            }
+        }
     }
 }
