@@ -14,6 +14,12 @@ pub enum DateErr {
     Io(Error),
 }
 
+impl From<Error> for DateErr {
+    fn from(value: Error) -> Self {
+        DateErr::Io(value)
+    }
+}
+
 pub fn init() {
     let current_dir = env::current_dir().expect("failed to obtain current dir");
     let current_dir: PathBuf = current_dir.join(GIT_DIR);
@@ -28,6 +34,7 @@ pub fn init() {
 pub enum DataType {
     None,
     Blob,
+    Tree,
 }
 
 impl From<&DataType> for String {
@@ -35,17 +42,34 @@ impl From<&DataType> for String {
         match value {
             DataType::None => String::from("None"),
             DataType::Blob => String::from("Blob"),
+            DataType::Tree => String::from("Tree"),
         }
     }
 }
 
-pub fn hash(bytes: &[u8], ty: DataType) {
+pub fn hash_object(path: &PathBuf) -> Result<String, DateErr> {
+    match File::open(path) {
+        Ok(mut f) => {
+            let mut buffers = Vec::new();
+            match f.read_to_end(&mut buffers) {
+                Ok(_) => match hash(&buffers, DataType::Blob) {
+                    Ok(hex) => Ok(hex),
+                    Err(err) => Err(err),
+                },
+                Err(e) => Err(e.into()),
+            }
+        }
+        Err(e) => Err(e.into()),
+    }
+}
+
+pub fn hash(bytes: &[u8], ty: DataType) -> Result<String, DateErr> {
     let mut haser = Sha1::new();
     haser.input(bytes);
     let hex = haser.result_str();
 
     let current_dir = env::current_dir().expect("failed to obtain current dir");
-    let current_dir: PathBuf = current_dir.join(GIT_DIR).join(hex);
+    let current_dir: PathBuf = current_dir.join(GIT_DIR).join(&hex);
     match File::create(&current_dir) {
         Ok(mut f) => {
             let mut datas: Vec<u8> = vec![];
@@ -60,8 +84,13 @@ pub fn hash(bytes: &[u8], ty: DataType) {
             if let Err(e) = f.write_all(&datas) {
                 eprintln!("write to {:?} err:{:?}", current_dir, e);
             }
+
+            Ok(hex)
         }
-        Err(r) => eprintln!("open file:{:?} err:{:?}", current_dir, r),
+        Err(r) => {
+            eprintln!("open file:{:?} err:{:?}", current_dir, r);
+            Err(r.into())
+        }
     }
 }
 

@@ -1,9 +1,10 @@
-use std::{fs::File, io::Read};
+use std::{fs::File, io::Read, path::PathBuf};
 
 use clap::Parser;
 use rgit::{
+    base,
     cli::{Cli, Commands},
-    data, base,
+    data,
 };
 
 fn main() {
@@ -15,7 +16,10 @@ fn main() {
             Ok(mut f) => {
                 let mut buffers = Vec::new();
                 match f.read_to_end(&mut buffers) {
-                    Ok(_) => data::hash(&buffers, data::DataType::Blob),
+                    Ok(_) => match data::hash(&buffers, data::DataType::Blob) {
+                        Ok(hex) => println!("file_hex:{}", hex),
+                        Err(err) => eprintln!("hash {} file err:{:?}", file, err),
+                    },
                     Err(e) => eprintln!("read {} file err:{}", file, e),
                 }
             }
@@ -25,6 +29,8 @@ fn main() {
             Ok(str) => println!("{}", str),
             Err(e) => eprintln!("get object:{:?}, err:{:?}", object, e),
         },
-        Commands::WriteTree { dir } => base::write_tree(dir.into()),
+        Commands::WriteTree { dir } => {
+            base::write_tree(&PathBuf::from(dir)).unwrap();
+        }
     }
 }

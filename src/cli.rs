@@ -19,5 +19,5 @@ pub enum Commands {
     CatFile { object: String },
     /// storing a whole directory
     #[command(name = "write-tree")]
-    WriteTree{ dir: String}
+    WriteTree { dir: String },
 }
