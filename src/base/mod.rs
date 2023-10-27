@@ -1,4 +1,9 @@
-use std::path::{Path, PathBuf};
+use std::{
+    collections::HashMap,
+    fs::{self, File},
+    io::Write,
+    path::{Path, PathBuf},
+};
 
 use crate::data::{self, DataType};
 
@@ -22,7 +27,7 @@ pub fn write_tree(path: &PathBuf) -> Option<String> {
                 Err(e) => eprintln!("hash_object error, file:{:?} err:{:?}", path, e),
             }
         } else if let Some(hex) = write_tree(&path) {
-                entires.push((DataType::Tree, hex, file_name(&path)))
+            entires.push((DataType::Tree, hex, file_name(&path)))
         }
     }
 
@@ -51,11 +56,70 @@ fn file_name(path: &Path) -> String {
 }
 
 fn is_ignored(path: &Path) -> bool {
+    //TODO ignore
     for component in path.iter() {
-        if component == ".rgit" {
+        if component == ".rgit" || component == ".git" || component == "target" {
             return true;
         }
     }
 
     false
+}
+
+/// 递归式读取整个仓库
+pub fn get_tree(oid: &str, base_path: &Path) -> Option<HashMap<PathBuf, String>> {
+    let root = match data::get_object(oid, DataType::Tree) {
+        Ok(content) => content,
+        Err(e) => {
+            eprintln!("get_tree err, path:{:?}, err:{:?}", base_path, e);
+            return None;
+        }
+    };
+
+    let mut res = HashMap::new();
+    for line in root.lines() {
+        let parts = line.splitn(3, ' ').collect::<Vec<_>>();
+        let (ty, oid, name) = (parts[0], parts[1], parts[2]);
+        let path = base_path.join(name);
+        match ty {
+            "Blob" => {
+                res.insert(path, oid.to_string());
+            }
+            "Tree" => {
+                if let Some(map) = get_tree(oid, &path) {
+                    res.extend(map);
+                }
+            }
+            _ => eprintln!("Unknow tree entry: {}", ty),
+        };
+    }
+
+    Some(res)
+}
+
+pub fn read_tree(oid: &str) {
+    match get_tree(oid, &PathBuf::from("./")) {
+        Some(map) => {
+            for (path, oid) in map {
+                if let Some(parent) = path.parent() {
+                    if let Err(e) = fs::create_dir_all(parent) {
+                        eprintln!("create dirs error:{:?}", e);
+                    }
+                }
+
+                match File::options().write(true).create(true).open(&path) {
+                    Ok(mut f) => match data::get_object(&oid, DataType::None) {
+                        Ok(content) => {
+                            if let Err(e) = f.write_all(content.as_bytes()) {
+                                eprintln!("read_tree write err file:{:?}, oid:{:?}", path, e);
+                            }
+                        }
+                        Err(e) => eprintln!("read_tree err file:{:?}, oid:{:?}", path, e),
+                    },
+                    Err(e) => eprintln!("open file error:{:?}", e),
+                }
+            }
+        }
+        None => eprintln!("tree oid:{}, didn't exit", oid),
+    };
 }

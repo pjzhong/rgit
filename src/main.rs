@@ -32,5 +32,8 @@ fn main() {
         Commands::WriteTree { dir } => {
             base::write_tree(&PathBuf::from(dir)).unwrap();
         }
+        Commands::ReadTree { oid } => {
+            base::read_tree(&oid);
+        }
     }
 }

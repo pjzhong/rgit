@@ -20,4 +20,7 @@ pub enum Commands {
     /// storing a whole directory
     #[command(name = "write-tree")]
     WriteTree { dir: String },
+    /// read a whole directory
+    #[command(name = "read-tree")]
+    ReadTree { oid: String },
 }
