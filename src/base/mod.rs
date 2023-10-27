@@ -5,7 +5,7 @@ use std::{
     path::{Path, PathBuf},
 };
 
-use crate::data::{self, DataType};
+use crate::data::{self, get_head, set_head, DataType, DateErr};
 
 pub fn write_tree(path: &PathBuf) -> Option<String> {
     //（类型，OID,名字）
@@ -122,4 +122,29 @@ pub fn read_tree(oid: &str) {
         }
         None => eprintln!("tree oid:{}, didn't exit", oid),
     };
+}
+
+pub fn commit(message: &str) -> Result<String, DateErr> {
+    let oid = match write_tree(&PathBuf::from("./")) {
+        Some(oid) => oid,
+        None => {
+            return Err(DateErr::Err(
+                "unknow reason, can't not write current director".to_string(),
+            ))
+        }
+    };
+
+    let mut commit = format!("tree {oid}\n");
+    if let Some(head) = get_head() {
+        commit.push_str(&format!("parnt {head}\n"));
+    }
+    commit.push_str(&format!("\n{message}\n"));
+
+    match data::hash(commit.as_bytes(), DataType::Commit) {
+        Ok(oid) => {
+            set_head(&oid);
+            return Ok(oid);
+        }
+        err @ Err(_) => err,
+    }
 }

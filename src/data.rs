@@ -1,7 +1,7 @@
-use std::env;
 use std::fs::{create_dir, File};
 use std::io::{Error, Read, Write};
 use std::path::PathBuf;
+use std::{env, fs};
 
 use crypto::digest::Digest;
 use crypto::sha1::Sha1;
@@ -12,6 +12,7 @@ pub const GIT_DIR: &str = ".rgit";
 pub enum DateErr {
     ContentMisMatch(String),
     Io(Error),
+    Err(String),
 }
 
 impl From<Error> for DateErr {
@@ -35,6 +36,7 @@ pub enum DataType {
     None,
     Blob,
     Tree,
+    Commit,
 }
 
 impl From<&DataType> for String {
@@ -43,6 +45,7 @@ impl From<&DataType> for String {
             DataType::None => String::from("None"),
             DataType::Blob => String::from("Blob"),
             DataType::Tree => String::from("Tree"),
+            DataType::Commit => String::from("Commit"),
         }
     }
 }
@@ -130,5 +133,37 @@ pub fn get_object(oid: &str, expected: DataType) -> Result<String, DateErr> {
                 Ok(content)
             }
         }
+    }
+}
+
+pub fn set_head(oid: &str) {
+    let path = PathBuf::from(GIT_DIR).join("HEAD");
+
+    match File::options()
+        .write(true)
+        .create(true)
+        .truncate(true)
+        .open(path)
+    {
+        Ok(mut f) => {
+            if let Err(err) = f.write_all(oid.as_bytes()) {
+                eprintln!("set head err:{:?}", err);
+            }
+        }
+        Err(e) => eprintln!("set_head error, err:{:?}", e),
+    }
+}
+
+pub fn get_head() -> Option<String> {
+    let path = PathBuf::from(GIT_DIR).join("HEAD");
+    match File::open(path) {
+        Ok(mut f) => {
+            let mut str = String::new();
+            match f.read_to_string(&mut str) {
+                Ok(_) => Some(str),
+                Err(_) => None,
+            }
+        }
+        Err(_) => None,
     }
 }

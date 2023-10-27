@@ -23,4 +23,10 @@ pub enum Commands {
     /// read a whole directory
     #[command(name = "read-tree")]
     ReadTree { oid: String },
+    /// Record changes to the repository
+    #[command(name = "commit")]
+    Commit {
+        #[arg(short, long)]
+        message: String,
+    },
 }

@@ -35,5 +35,8 @@ fn main() {
         Commands::ReadTree { oid } => {
             base::read_tree(&oid);
         }
+        Commands::Commit { message } => {
+            println!("{:?}", base::commit(&message))
+        }
     }
 }
