@@ -38,8 +38,8 @@ fn main() {
         Commands::Commit { message } => {
             println!("{:?}", base::commit(&message))
         }
-        Commands::Log => {
-            let mut head = data::get_head();
+        Commands::Log { oid } => {
+            let mut head = if oid.is_some() { oid } else { data::get_head() };
             while let Some(oid) = head.take() {
                 if let Some(commit) = base::get_commit(&oid) {
                     println!("commit {}", commit.tree);

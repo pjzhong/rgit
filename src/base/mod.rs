@@ -144,7 +144,7 @@ pub fn commit(message: &str) -> Result<String, DateErr> {
     if let Some(head) = get_head() {
         commit.push_str(&format!("parent {head}\n"));
     } else {
-        commit.push_str("\n");
+        commit.push('\n');
     }
     commit.push_str(&format!("\n{message}\n"));
 

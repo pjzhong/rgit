@@ -31,5 +31,5 @@ pub enum Commands {
     },
     /// print the commit history
     #[command(name = "log")]
-    Log,
+    Log { oid: Option<String> },
 }
