@@ -7,6 +7,12 @@ use std::{
 
 use crate::data::{self, get_head, set_head, DataType, DateErr};
 
+pub struct Commit {
+    pub tree: String,
+    pub parent: Option<String>,
+    pub message: Option<String>,
+}
+
 pub fn write_tree(path: &PathBuf) -> Option<String> {
     //（类型，OID,名字）
     let mut entires: Vec<(DataType, String, String)> = vec![];
@@ -24,7 +30,7 @@ pub fn write_tree(path: &PathBuf) -> Option<String> {
         if path.is_file() {
             match data::hash_object(&path) {
                 Ok(hex) => entires.push((DataType::Blob, hex, file_name(&path))),
-                Err(e) => eprintln!("hash_object error, file:{:?} err:{:?}", path, e),
+                Err(e) => eprintln!("write_tree_hash_object error, file:{:?} err:{:?}", path, e),
             }
         } else if let Some(hex) = write_tree(&path) {
             entires.push((DataType::Tree, hex, file_name(&path)))
@@ -136,15 +142,52 @@ pub fn commit(message: &str) -> Result<String, DateErr> {
 
     let mut commit = format!("tree {oid}\n");
     if let Some(head) = get_head() {
-        commit.push_str(&format!("parnt {head}\n"));
+        commit.push_str(&format!("parent {head}\n"));
+    } else {
+        commit.push_str("\n");
     }
     commit.push_str(&format!("\n{message}\n"));
 
     match data::hash(commit.as_bytes(), DataType::Commit) {
         Ok(oid) => {
             set_head(&oid);
-            return Ok(oid);
+            Ok(oid)
         }
         err @ Err(_) => err,
+    }
+}
+
+pub fn get_commit(oid: &str) -> Option<Commit> {
+    match data::get_object(oid, DataType::Commit) {
+        Ok(content) => {
+            const TREE_PREFIX: &str = "tree ";
+            const PARENT_PREFIX: &str = "parent ";
+            //前两行
+            //tree
+            //parent
+            //空格
+            //剩下的都是内容
+            let mut lines = content.lines();
+            let tree = lines
+                .next()
+                .filter(|s| s.starts_with(TREE_PREFIX))
+                .and_then(|s| s.strip_prefix(TREE_PREFIX).map(str::to_string));
+            let parent = lines
+                .next()
+                .filter(|s| s.starts_with(PARENT_PREFIX))
+                .and_then(|s| s.strip_prefix(PARENT_PREFIX).map(str::to_string));
+            let _empty = lines.next();
+            let message = lines.collect::<String>();
+
+            Some(Commit {
+                tree: tree.unwrap_or_else(String::new),
+                parent,
+                message: Some(message),
+            })
+        }
+        Err(e) => {
+            eprintln!("get_commit err, err:{:?}", e);
+            None
+        }
     }
 }

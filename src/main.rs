@@ -38,5 +38,23 @@ fn main() {
         Commands::Commit { message } => {
             println!("{:?}", base::commit(&message))
         }
+        Commands::Log => {
+            let mut head = data::get_head();
+            while let Some(oid) = head.take() {
+                if let Some(commit) = base::get_commit(&oid) {
+                    println!("commit {}", commit.tree);
+                    println!(
+                        "    {}",
+                        if let Some(msg) = commit.message.as_ref() {
+                            msg
+                        } else {
+                            ""
+                        }
+                    );
+
+                    head = commit.parent.clone();
+                }
+            }
+        }
     }
 }

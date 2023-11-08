@@ -1,7 +1,7 @@
+use std::env;
 use std::fs::{create_dir, File};
 use std::io::{Error, Read, Write};
 use std::path::PathBuf;
-use std::{env, fs};
 
 use crypto::digest::Digest;
 use crypto::sha1::Sha1;
@@ -91,7 +91,7 @@ pub fn hash(bytes: &[u8], ty: DataType) -> Result<String, DateErr> {
             Ok(hex)
         }
         Err(r) => {
-            eprintln!("open file:{:?} err:{:?}", current_dir, r);
+            eprintln!("create file:{:?} err:{:?}", current_dir, r);
             Err(r.into())
         }
     }
@@ -147,7 +147,7 @@ pub fn set_head(oid: &str) {
     {
         Ok(mut f) => {
             if let Err(err) = f.write_all(oid.as_bytes()) {
-                eprintln!("set head err:{:?}", err);
+                eprintln!("write  head err:{:?}", err);
             }
         }
         Err(e) => eprintln!("set_head error, err:{:?}", e),

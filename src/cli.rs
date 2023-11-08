@@ -29,4 +29,7 @@ pub enum Commands {
         #[arg(short, long)]
         message: String,
     },
+    /// print the commit history
+    #[command(name = "log")]
+    Log,
 }
