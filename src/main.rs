@@ -42,7 +42,7 @@ fn main() {
             let mut head = if oid.is_some() { oid } else { data::get_head() };
             while let Some(oid) = head.take() {
                 if let Some(commit) = base::get_commit(&oid) {
-                    println!("commit {}", commit.tree);
+                    println!("commit {}", commit.tree.unwrap_or_else(String::new));
                     println!(
                         "    {}",
                         if let Some(msg) = commit.message.as_ref() {
@@ -56,5 +56,6 @@ fn main() {
                 }
             }
         }
+        Commands::CheckOut { oid } => base::checkout(&oid),
     }
 }

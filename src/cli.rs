@@ -32,4 +32,7 @@ pub enum Commands {
     /// print the commit history
     #[command(name = "log")]
     Log { oid: Option<String> },
+    /// Switch branches or restore working tree files
+    #[command(name = "checkout")]
+    CheckOut { oid: String },
 }

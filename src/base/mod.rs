@@ -8,7 +8,7 @@ use std::{
 use crate::data::{self, get_head, set_head, DataType, DateErr};
 
 pub struct Commit {
-    pub tree: String,
+    pub tree: Option<String>,
     pub parent: Option<String>,
     pub message: Option<String>,
 }
@@ -180,7 +180,7 @@ pub fn get_commit(oid: &str) -> Option<Commit> {
             let message = lines.collect::<String>();
 
             Some(Commit {
-                tree: tree.unwrap_or_else(String::new),
+                tree,
                 parent,
                 message: Some(message),
             })
@@ -189,5 +189,17 @@ pub fn get_commit(oid: &str) -> Option<Commit> {
             eprintln!("get_commit err, err:{:?}", e);
             None
         }
+    }
+}
+
+pub fn checkout(oid: &str) {
+    match get_commit(oid) {
+        Some(Commit {
+            tree: Some(oid), ..
+        }) => {
+            read_tree(&oid);
+            data::set_head(&oid)
+        }
+        _ => eprintln!("checkout not exists commit, oid:{}", oid),
     }
 }
