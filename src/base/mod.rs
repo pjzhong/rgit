@@ -195,9 +195,9 @@ pub fn get_commit(oid: &str) -> Option<Commit> {
 pub fn checkout(oid: &str) {
     match get_commit(oid) {
         Some(Commit {
-            tree: Some(oid), ..
+            tree: Some(tree_id), ..
         }) => {
-            read_tree(&oid);
+            read_tree(&tree_id);
             data::set_head(&oid)
         }
         _ => eprintln!("checkout not exists commit, oid:{}", oid),
