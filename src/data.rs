@@ -1,12 +1,13 @@
-use std::env;
 use std::fs::{create_dir, File};
 use std::io::{Error, Read, Write};
 use std::path::PathBuf;
+use std::{env, fs};
 
 use crypto::digest::Digest;
 use crypto::sha1::Sha1;
 
 pub const GIT_DIR: &str = ".rgit";
+pub const HEAD: &str = "HEAD";
 
 #[derive(Debug)]
 pub enum DateErr {
@@ -136,8 +137,14 @@ pub fn get_object(oid: &str, expected: DataType) -> Result<String, DateErr> {
     }
 }
 
-pub fn set_head(oid: &str) {
-    let path = PathBuf::from(GIT_DIR).join("HEAD");
+pub fn update_ref(ref_str: impl Into<PathBuf>, oid: &str) {
+    let path = PathBuf::from(GIT_DIR).join(ref_str.into());
+
+    if let Some(parent) = path.parent() {
+        if let Err(e) = fs::create_dir_all(parent) {
+            eprintln!("update_ref, create dirs error:{:?}", e);
+        }
+    }
 
     match File::options()
         .write(true)
@@ -150,12 +157,12 @@ pub fn set_head(oid: &str) {
                 eprintln!("write  head err:{:?}", err);
             }
         }
-        Err(e) => eprintln!("set_head error, err:{:?}", e),
+        Err(e) => eprintln!("set_head11111 error, err:{:?}", e),
     }
 }
 
-pub fn get_head() -> Option<String> {
-    let path = PathBuf::from(GIT_DIR).join("HEAD");
+pub fn get_ref(ref_str: &str) -> Option<String> {
+    let path = PathBuf::from(GIT_DIR).join(ref_str);
     match File::open(path) {
         Ok(mut f) => {
             let mut str = String::new();

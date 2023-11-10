@@ -5,12 +5,17 @@ use std::{
     path::{Path, PathBuf},
 };
 
-use crate::data::{self, get_head, set_head, DataType, DateErr};
+use crate::data::{self, get_ref, update_ref, DataType, DateErr};
 
 pub struct Commit {
     pub tree: Option<String>,
     pub parent: Option<String>,
     pub message: Option<String>,
+}
+
+pub fn get_oid(name: impl Into<String>) -> String {
+    let name = name.into();
+    get_ref(&name).unwrap_or(name)
 }
 
 pub fn write_tree(path: &PathBuf) -> Option<String> {
@@ -141,7 +146,7 @@ pub fn commit(message: &str) -> Result<String, DateErr> {
     };
 
     let mut commit = format!("tree {oid}\n");
-    if let Some(head) = get_head() {
+    if let Some(head) = get_ref(data::HEAD) {
         commit.push_str(&format!("parent {head}\n"));
     } else {
         commit.push('\n');
@@ -150,7 +155,7 @@ pub fn commit(message: &str) -> Result<String, DateErr> {
 
     match data::hash(commit.as_bytes(), DataType::Commit) {
         Ok(oid) => {
-            set_head(&oid);
+            update_ref(data::HEAD, &oid);
             Ok(oid)
         }
         err @ Err(_) => err,
@@ -195,11 +200,16 @@ pub fn get_commit(oid: &str) -> Option<Commit> {
 pub fn checkout(oid: &str) {
     match get_commit(oid) {
         Some(Commit {
-            tree: Some(tree_id), ..
+            tree: Some(tree_id),
+            ..
         }) => {
             read_tree(&tree_id);
-            data::set_head(&oid)
+            data::update_ref(data::HEAD, oid)
         }
         _ => eprintln!("checkout not exists commit, oid:{}", oid),
     }
+}
+
+pub fn create_tag(oid: &str, tag: &str) {
+    update_ref(PathBuf::from("refs").join("tags").join(tag), oid)
 }

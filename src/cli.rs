@@ -16,7 +16,7 @@ pub enum Commands {
     HashObject { file: String },
     /// cat the file
     #[command(name = "cat-file")]
-    CatFile { object: String },
+    CatFile { oid: String },
     /// storing a whole directory
     #[command(name = "write-tree")]
     WriteTree { dir: String },
@@ -35,4 +35,7 @@ pub enum Commands {
     /// Switch branches or restore working tree files
     #[command(name = "checkout")]
     CheckOut { oid: String },
+    /// Create, list, delete or verify a tag object signed with GPG
+    #[command(name = "tag")]
+    Tag { name: String, oid: Option<String> },
 }

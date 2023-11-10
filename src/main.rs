@@ -25,21 +25,27 @@ fn main() {
             }
             Err(e) => eprintln!("open {} file err:{}", file, e),
         },
-        Commands::CatFile { object } => match data::get_object(&object, data::DataType::None) {
-            Ok(str) => println!("{}", str),
-            Err(e) => eprintln!("get object:{:?}, err:{:?}", object, e),
-        },
+        Commands::CatFile { oid } => {
+            match data::get_object(&base::get_oid(&oid), data::DataType::None) {
+                Ok(str) => println!("{}", str),
+                Err(e) => eprintln!("get object:{:?}, err:{:?}", oid, e),
+            }
+        }
         Commands::WriteTree { dir } => {
             base::write_tree(&PathBuf::from(dir)).unwrap();
         }
         Commands::ReadTree { oid } => {
-            base::read_tree(&oid);
+            base::read_tree(&base::get_oid(oid));
         }
         Commands::Commit { message } => {
             println!("{:?}", base::commit(&message))
         }
         Commands::Log { oid } => {
-            let mut head = if oid.is_some() { oid } else { data::get_head() };
+            let mut head = if let Some(oid) = oid {
+                Some(base::get_oid(oid))
+            } else {
+                data::get_ref(data::HEAD)
+            };
             while let Some(oid) = head.take() {
                 if let Some(commit) = base::get_commit(&oid) {
                     println!("commit {}", oid);
@@ -56,6 +62,18 @@ fn main() {
                 }
             }
         }
-        Commands::CheckOut { oid } => base::checkout(&oid),
+        Commands::CheckOut { oid } => base::checkout(&base::get_oid(oid)),
+        Commands::Tag { name, oid } => {
+            let oid = if let Some(oid) = oid {
+                Some(base::get_oid(oid))
+            } else {
+                data::get_ref(data::HEAD)
+            };
+
+            match oid {
+                Some(oid) => base::create_tag(&oid, &name),
+                None => eprintln!("No head to tag"),
+            }
+        }
     }
 }
