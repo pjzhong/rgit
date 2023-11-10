@@ -15,7 +15,21 @@ pub struct Commit {
 
 pub fn get_oid(name: impl Into<String>) -> String {
     let name = name.into();
-    get_ref(&name).unwrap_or(name)
+
+    let refs_to_try: [&str; 4] = [
+        &name,
+        &format!("refs/{name}"),
+        &format!("refs/tags/{name}"),
+        &format!("refs/heads/{name}"),
+    ];
+
+    for name in refs_to_try {
+        if let Some(oid) = get_ref(name) {
+            return oid;
+        }
+    }
+
+    name
 }
 
 pub fn write_tree(path: &PathBuf) -> Option<String> {
@@ -118,22 +132,16 @@ pub fn read_tree(oid: &str) {
                     }
                 }
 
-                match data::get_object(&oid, DataType::None) {
-                    Ok(content) => match File::options()
-                        .write(true)
-                        .create(true)
-                        .truncate(true)
-                        .open(&path)
-                    {
-                        Ok(mut f) => {
+                match File::options().write(true).create(true).open(&path) {
+                    Ok(mut f) => match data::get_object(&oid, DataType::None) {
+                        Ok(content) => {
                             if let Err(e) = f.write_all(content.as_bytes()) {
                                 eprintln!("read_tree write err file:{:?}, oid:{:?}", path, e);
                             }
                         }
-
-                        Err(e) => eprintln!("open file error:{:?}", e),
+                        Err(e) => eprintln!("read_tree err file:{:?}, oid:{:?}", path, e),
                     },
-                    Err(e) => eprintln!("read_tree err file:{:?}, oid:{:?}", path, e),
+                    Err(e) => eprintln!("open file error:{:?}", e),
                 }
             }
         }
@@ -197,7 +205,7 @@ pub fn get_commit(oid: &str) -> Option<Commit> {
             })
         }
         Err(e) => {
-            eprintln!("get_commit err, err:{:?}", e);
+            eprintln!("get_commit err, oid:{:?}, err:{:?}", oid, e);
             None
         }
     }
