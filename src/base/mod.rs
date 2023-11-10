@@ -118,16 +118,22 @@ pub fn read_tree(oid: &str) {
                     }
                 }
 
-                match File::options().write(true).create(true).open(&path) {
-                    Ok(mut f) => match data::get_object(&oid, DataType::None) {
-                        Ok(content) => {
+                match data::get_object(&oid, DataType::None) {
+                    Ok(content) => match File::options()
+                        .write(true)
+                        .create(true)
+                        .truncate(true)
+                        .open(&path)
+                    {
+                        Ok(mut f) => {
                             if let Err(e) = f.write_all(content.as_bytes()) {
                                 eprintln!("read_tree write err file:{:?}, oid:{:?}", path, e);
                             }
                         }
-                        Err(e) => eprintln!("read_tree err file:{:?}, oid:{:?}", path, e),
+
+                        Err(e) => eprintln!("open file error:{:?}", e),
                     },
-                    Err(e) => eprintln!("open file error:{:?}", e),
+                    Err(e) => eprintln!("read_tree err file:{:?}, oid:{:?}", path, e),
                 }
             }
         }
