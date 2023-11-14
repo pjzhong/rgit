@@ -38,4 +38,7 @@ pub enum Commands {
     /// Create, list, delete or verify a tag object signed with GPG
     #[command(name = "tag")]
     Tag { name: String, oid: Option<String> },
+    /// Print refs
+    #[command(name = "k")]
+    K,
 }

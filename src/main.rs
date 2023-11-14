@@ -1,4 +1,4 @@
-use std::{fs::File, io::Read, path::PathBuf};
+use std::{collections::HashSet, fs::File, io::Read, path::PathBuf};
 
 use clap::Parser;
 use rgit::{
@@ -41,28 +41,9 @@ fn main() {
             println!("{:?}", base::commit(&message))
         }
         Commands::Log { oid } => {
-            let mut head = if let Some(oid) = oid {
-                Some(base::get_oid(oid))
-            } else {
-                data::get_ref(data::HEAD)
-            };
-            while let Some(oid) = head.take() {
-                if let Some(commit) = base::get_commit(&oid) {
-                    println!("commit {}", oid);
-                    println!(
-                        "    {}",
-                        if let Some(msg) = commit.message.as_ref() {
-                            msg
-                        } else {
-                            ""
-                        }
-                    );
-
-                    head = commit.parent.clone();
-                }
-            }
+            log(oid);
         }
-        Commands::CheckOut { oid } => base::checkout(&base::get_oid(oid)),
+        Commands::CheckOut { oid } => base::checkout(base::get_oid(oid)),
         Commands::Tag { name, oid } => {
             let oid = if let Some(oid) = oid {
                 Some(base::get_oid(oid))
@@ -75,5 +56,49 @@ fn main() {
                 None => eprintln!("No head to tag"),
             }
         }
+        Commands::K => k(),
     }
+}
+
+fn log(oid: Option<String>) {
+    let head = if let Some(oid) = oid {
+        base::get_oid(oid)
+    } else {
+        data::get_ref(data::HEAD).unwrap_or_default()
+    };
+
+    for oid in base::iter_commits_and_parents(vec![head]) {
+        if let Some(commit) = base::get_commit(oid) {
+            println!("commit {}", commit.tree.unwrap_or_default());
+            println!("       {}", commit.message.unwrap_or_default());
+        }
+    }
+}
+
+///Render graph, you need to know well about graphviz tool first
+/// I choose skip now
+fn k() {
+    let mut dot = String::from("digraph commits {\n");
+
+    let mut oids = HashSet::new();
+    for reference in data::iter_refs() {
+        let oid = base::get_oid(&reference);
+        dot.push_str(&format!("\"{reference}\" [ship=note]\n"));
+        dot.push_str(&format!("\"{reference}\" -> \"{oid}\"\n"));
+        oids.insert(oid);
+    }
+
+    for oid in base::iter_commits_and_parents(Vec::from_iter(oids)) {
+        if let Some(commit) = base::get_commit(&oid) {
+            dot.push_str(&format!(
+                "\"{oid}\" [shape=box style=filled label=\"{oid}\"]\n"
+            ));
+            if let Some(parent) = commit.parent {
+                dot.push_str(&format!("\"{oid}\" -> \"{parent}\"\n"));
+            }
+        }
+    }
+
+    dot.push('}');
+    println!("{dot}");
 }

@@ -1,5 +1,5 @@
 use std::{
-    collections::HashMap,
+    collections::{HashMap, HashSet, LinkedList},
     fs::{self, File},
     io::Write,
     path::{Path, PathBuf},
@@ -13,9 +13,10 @@ pub struct Commit {
     pub message: Option<String>,
 }
 
-pub fn get_oid(name: impl Into<String>) -> String {
-    let name = name.into();
+pub fn get_oid<T: AsRef<str>>(name: T) -> String {
+    let name = name.as_ref();
 
+    //简单粗暴，直接遍历
     let refs_to_try: [&str; 4] = [
         &name,
         &format!("refs/{name}"),
@@ -29,7 +30,7 @@ pub fn get_oid(name: impl Into<String>) -> String {
         }
     }
 
-    name
+    name.to_string()
 }
 
 pub fn write_tree(path: &PathBuf) -> Option<String> {
@@ -176,7 +177,8 @@ pub fn commit(message: &str) -> Result<String, DateErr> {
     }
 }
 
-pub fn get_commit(oid: &str) -> Option<Commit> {
+pub fn get_commit<T: AsRef<str>>(oid: T) -> Option<Commit> {
+    let oid = oid.as_ref();
     match data::get_object(oid, DataType::Commit) {
         Ok(content) => {
             const TREE_PREFIX: &str = "tree ";
@@ -211,7 +213,8 @@ pub fn get_commit(oid: &str) -> Option<Commit> {
     }
 }
 
-pub fn checkout(oid: &str) {
+pub fn checkout<T: AsRef<str>>(oid: T) {
+    let oid = oid.as_ref();
     match get_commit(oid) {
         Some(Commit {
             tree: Some(tree_id),
@@ -226,4 +229,25 @@ pub fn checkout(oid: &str) {
 
 pub fn create_tag(oid: &str, tag: &str) {
     update_ref(PathBuf::from("refs").join("tags").join(tag), oid)
+}
+
+pub fn iter_commits_and_parents(oids: Vec<String>) -> Vec<String> {
+    let mut oids = oids.into_iter().collect::<LinkedList<_>>();
+    let mut visited = HashSet::new();
+
+    let mut commits = vec![];
+    while let Some(oid) = oids.pop_front() {
+        if visited.contains(&oid) {
+            continue;
+        }
+
+        if let Some(parent) = get_commit(&oid).and_then(|c| c.parent) {
+            oids.push_back(parent);
+        }
+
+        commits.push(oid.clone());
+        visited.insert(oid);
+    }
+
+    commits
 }
