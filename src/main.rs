@@ -57,6 +57,7 @@ fn main() {
             }
         }
         Commands::K => k(),
+        Commands::Branch { name, oid } => branch(&name, oid),
     }
 }
 
@@ -68,8 +69,8 @@ fn log(oid: Option<String>) {
     };
 
     for oid in base::iter_commits_and_parents(vec![head]) {
-        if let Some(commit) = base::get_commit(oid) {
-            println!("commit {}", commit.tree.unwrap_or_default());
+        if let Some(commit) = base::get_commit(&oid) {
+            println!("commit {}", oid);
             println!("       {}", commit.message.unwrap_or_default());
         }
     }
@@ -101,4 +102,21 @@ fn k() {
 
     dot.push('}');
     println!("{dot}");
+}
+
+fn branch(name: &str, oid: Option<String>) {
+    let oid = if let Some(oid) = oid {
+        base::get_oid(oid)
+    } else {
+        match data::get_ref(data::HEAD) {
+            Some(head) => head,
+            None => {
+                eprintln!("No commit yet");
+                return;
+            }
+        }
+    };
+
+    base::create_branch(name, &oid);
+    println!("Branch {name} created at {oid}");
 }

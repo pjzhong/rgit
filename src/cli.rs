@@ -41,4 +41,7 @@ pub enum Commands {
     /// Print refs
     #[command(name = "k")]
     K,
+    /// Create new branch
+    #[command(name = "branch")]
+    Branch { name: String, oid: Option<String> },
 }

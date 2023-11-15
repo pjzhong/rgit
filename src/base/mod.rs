@@ -251,3 +251,7 @@ pub fn iter_commits_and_parents(oids: Vec<String>) -> Vec<String> {
 
     commits
 }
+
+pub fn create_branch<T: AsRef<str>>(name: T, oid: T) {
+    data::update_ref(format!("refs/heads/{}", name.as_ref()), oid.as_ref());
+}

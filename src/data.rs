@@ -165,7 +165,7 @@ pub fn update_ref(ref_str: impl Into<PathBuf>, oid: &str) {
                 eprintln!("write  head err:{:?}", err);
             }
         }
-        Err(e) => eprintln!("set_head11111 error, err:{:?}", e),
+        Err(e) => eprintln!("set_ref error, err:{:?}", e),
     }
 }
 
