@@ -9,6 +9,7 @@ use crypto::sha1::Sha1;
 
 pub const GIT_DIR: &str = ".rgit";
 pub const HEAD: &str = "HEAD";
+pub const REF_PREFIX: &str = "ref: ";
 pub const DELIMITER: u8 = b'\x00';
 
 #[derive(Debug)]
@@ -16,6 +17,20 @@ pub enum DateErr {
     ContentMisMatch(String),
     Io(Error),
     Err(String),
+}
+
+pub struct RefValue {
+    pub symbolic: bool,
+    pub value: String,
+}
+
+impl RefValue {
+    pub fn direct(value: String) -> Self {
+        Self {
+            symbolic: false,
+            value,
+        }
+    }
 }
 
 impl From<Error> for DateErr {
@@ -145,8 +160,13 @@ pub fn get_object(oid: &str, expected: DataType) -> Result<String, DateErr> {
     }
 }
 
-pub fn update_ref(ref_str: impl Into<PathBuf>, oid: &str) {
-    let path = PathBuf::from(GIT_DIR).join(ref_str.into());
+pub fn update_ref(ref_str: impl AsRef<str>, value: RefValue, deref: bool) {
+    let ref_str = ref_str.as_ref();
+    let ref_str = get_ref_internal(ref_str, deref)
+        .map(|(ref_str, _)| ref_str)
+        .unwrap_or_else(|| ref_str.to_string());
+
+    let path = PathBuf::from(GIT_DIR).join(ref_str);
 
     if let Some(parent) = path.parent() {
         if let Err(e) = fs::create_dir_all(parent) {
@@ -161,30 +181,60 @@ pub fn update_ref(ref_str: impl Into<PathBuf>, oid: &str) {
         .open(path)
     {
         Ok(mut f) => {
-            if let Err(err) = f.write_all(oid.as_bytes()) {
-                eprintln!("write  head err:{:?}", err);
+            let value = if value.symbolic {
+                format!("{REF_PREFIX}{}", value.value)
+            } else {
+                value.value
+            };
+            if let Err(err) = f.write_all(value.as_bytes()) {
+                println!("update_ref  ref:{:?} err:{:?}", value, err);
             }
         }
-        Err(e) => eprintln!("set_ref error, err:{:?}", e),
+        Err(e) => eprintln!("update_ref error, err:{:?}", e),
     }
 }
 
-pub fn get_ref(ref_str: &str) -> Option<String> {
+pub fn get_ref(ref_str: &str, deref: bool) -> Option<RefValue> {
+    get_ref_internal(ref_str, deref).map(|(_, val)| val)
+}
+
+pub fn get_ref_recursive(ref_str: &str) -> Option<RefValue> {
+    get_ref_internal(ref_str, true).map(|(_, val)| val)
+}
+
+/// ['ref_str']: /ref/heads/branch or /refs/tags/test
+fn get_ref_internal(ref_str: &str, deref: bool) -> Option<(String, RefValue)> {
     let path = PathBuf::from(GIT_DIR).join(ref_str);
-    match File::open(path) {
-        Ok(mut f) => {
-            let mut str = String::new();
-            match f.read_to_string(&mut str) {
-                Ok(_) => Some(str),
-                Err(_) => None,
-            }
+    if !path.is_file() {
+        return None;
+    }
+
+    let value = {
+        let mut f = match File::open(path) {
+            Ok(f) => f,
+            Err(_) => return None,
+        };
+
+        let mut str = String::new();
+        match f.read_to_string(&mut str) {
+            Ok(_) => str,
+            Err(_) => return None,
         }
-        Err(_) => None,
+    };
+
+    if let Some(str) = value.strip_prefix(REF_PREFIX) {
+        if deref {
+            get_ref_internal(str.trim(), deref)
+        } else {
+            Some((ref_str.to_string(), RefValue::direct(value)))
+        }
+    } else {
+        Some((ref_str.to_string(), RefValue::direct(value)))
     }
 }
 
 pub fn iter_refs() -> Vec<String> {
-    let mut refs = vec![String::from("HEAD")];
+    let mut refs = vec![String::from(HEAD)];
 
     let refs_path = PathBuf::from(GIT_DIR).join("refs");
     let mut dirs = LinkedList::new();

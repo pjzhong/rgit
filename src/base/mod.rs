@@ -5,7 +5,7 @@ use std::{
     path::{Path, PathBuf},
 };
 
-use crate::data::{self, get_ref, update_ref, DataType, DateErr};
+use crate::data::{self, get_ref, get_ref_recursive, update_ref, DataType, DateErr, RefValue};
 
 pub struct Commit {
     pub tree: Option<String>,
@@ -25,8 +25,8 @@ pub fn get_oid<T: AsRef<str>>(name: T) -> String {
     ];
 
     for name in refs_to_try {
-        if let Some(oid) = get_ref(name) {
-            return oid;
+        if let Some(val) = get_ref(name, false) {
+            return val.value;
         }
     }
 
@@ -161,8 +161,8 @@ pub fn commit(message: &str) -> Result<String, DateErr> {
     };
 
     let mut commit = format!("tree {oid}\n");
-    if let Some(head) = get_ref(data::HEAD) {
-        commit.push_str(&format!("parent {head}\n"));
+    if let Some(head) = get_ref_recursive(data::HEAD) {
+        commit.push_str(&format!("parent {}\n", head.value));
     } else {
         commit.push('\n');
     }
@@ -170,14 +170,14 @@ pub fn commit(message: &str) -> Result<String, DateErr> {
 
     match data::hash(commit.as_bytes(), DataType::Commit) {
         Ok(oid) => {
-            update_ref(data::HEAD, &oid);
+            update_ref(data::HEAD, RefValue::direct(oid.clone()), true);
             Ok(oid)
         }
         err @ Err(_) => err,
     }
 }
 
-pub fn get_commit<T: AsRef<str>>(oid: T) -> Option<Commit> {
+pub fn get_commit<T: AsRef<str>>(oid: &T) -> Option<Commit> {
     let oid = oid.as_ref();
     match data::get_object(oid, DataType::Commit) {
         Ok(content) => {
@@ -191,13 +191,13 @@ pub fn get_commit<T: AsRef<str>>(oid: T) -> Option<Commit> {
             let mut lines = content.lines();
             let tree = lines
                 .next()
-                .filter(|s| s.starts_with(TREE_PREFIX))
-                .and_then(|s| s.strip_prefix(TREE_PREFIX).map(str::to_string));
+                .and_then(|s| s.strip_prefix(TREE_PREFIX))
+                .map(str::to_string);
             let parent = lines
                 .next()
-                .filter(|s| s.starts_with(PARENT_PREFIX))
-                .and_then(|s| s.strip_prefix(PARENT_PREFIX).map(str::to_string));
-            let _empty = lines.next();
+                .and_then(|s| s.strip_prefix(PARENT_PREFIX))
+                .map(str::to_string);
+            let _ = lines.next();
             let message = lines.collect::<String>();
 
             Some(Commit {
@@ -213,22 +213,41 @@ pub fn get_commit<T: AsRef<str>>(oid: T) -> Option<Commit> {
     }
 }
 
-pub fn checkout<T: AsRef<str>>(oid: T) {
-    let oid = oid.as_ref();
-    match get_commit(oid) {
+pub fn checkout<T: AsRef<str>>(name: T) {
+    let name = name.as_ref();
+    let oid = get_oid(name);
+    match get_commit(&oid) {
         Some(Commit {
             tree: Some(tree_id),
             ..
         }) => {
             read_tree(&tree_id);
-            data::update_ref(data::HEAD, oid)
+
+            let ref_value = if is_branch(name) {
+                RefValue {
+                    symbolic: true,
+                    value: format!("refs/heads/{name}"),
+                }
+            } else {
+                RefValue::direct(oid)
+            };
+
+            data::update_ref(data::HEAD, ref_value, false)
         }
         _ => eprintln!("checkout not exists commit, oid:{}", oid),
     }
 }
 
 pub fn create_tag(oid: &str, tag: &str) {
-    update_ref(PathBuf::from("refs").join("tags").join(tag), oid)
+    update_ref(
+        &format!("refs/tags{tag}"),
+        RefValue::direct(oid.to_string()),
+        true,
+    )
+}
+
+fn is_branch(branch: &str) -> bool {
+    get_ref(&format!("refs/heads/{branch}"), true).is_some()
 }
 
 pub fn iter_commits_and_parents(oids: Vec<String>) -> Vec<String> {
@@ -253,5 +272,12 @@ pub fn iter_commits_and_parents(oids: Vec<String>) -> Vec<String> {
 }
 
 pub fn create_branch<T: AsRef<str>>(name: T, oid: T) {
-    data::update_ref(format!("refs/heads/{}", name.as_ref()), oid.as_ref());
+    data::update_ref(
+        format!("refs/heads/{}", name.as_ref()),
+        RefValue {
+            symbolic: false,
+            value: oid.as_ref().to_string(),
+        },
+        true,
+    );
 }

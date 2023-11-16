@@ -43,12 +43,12 @@ fn main() {
         Commands::Log { oid } => {
             log(oid);
         }
-        Commands::CheckOut { oid } => base::checkout(base::get_oid(oid)),
+        Commands::CheckOut { commit } => base::checkout(commit),
         Commands::Tag { name, oid } => {
             let oid = if let Some(oid) = oid {
-                Some(base::get_oid(oid))
+                Some(base::get_oid(&oid))
             } else {
-                data::get_ref(data::HEAD)
+                data::get_ref_recursive(data::HEAD).map(|val| val.value)
             };
 
             match oid {
@@ -63,9 +63,11 @@ fn main() {
 
 fn log(oid: Option<String>) {
     let head = if let Some(oid) = oid {
-        base::get_oid(oid)
+        base::get_oid(&oid)
     } else {
-        data::get_ref(data::HEAD).unwrap_or_default()
+        data::get_ref_recursive(data::HEAD)
+            .map(|head| head.value)
+            .unwrap_or_default()
     };
 
     for oid in base::iter_commits_and_parents(vec![head]) {
@@ -83,10 +85,13 @@ fn k() {
 
     let mut oids = HashSet::new();
     for reference in data::iter_refs() {
-        let oid = base::get_oid(&reference);
-        dot.push_str(&format!("\"{reference}\" [ship=note]\n"));
-        dot.push_str(&format!("\"{reference}\" -> \"{oid}\"\n"));
-        oids.insert(oid);
+        if let Some(ref_val) = data::get_ref_recursive(&reference) {
+            dot.push_str(&format!("\"{reference}\" [ship=note]\n"));
+            dot.push_str(&format!("\"{reference}\" -> \"{}\"\n", ref_val.value));
+            if !ref_val.symbolic {
+                oids.insert(ref_val.value);
+            }
+        }
     }
 
     for oid in base::iter_commits_and_parents(Vec::from_iter(oids)) {
@@ -108,8 +113,8 @@ fn branch(name: &str, oid: Option<String>) {
     let oid = if let Some(oid) = oid {
         base::get_oid(oid)
     } else {
-        match data::get_ref(data::HEAD) {
-            Some(head) => head,
+        match data::get_ref_recursive(data::HEAD) {
+            Some(head) => head.value,
             None => {
                 eprintln!("No commit yet");
                 return;
