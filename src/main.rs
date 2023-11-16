@@ -11,7 +11,7 @@ fn main() {
     let cli = Cli::parse();
 
     match cli.command {
-        Commands::Init => data::init(),
+        Commands::Init => base::init(),
         Commands::HashObject { file } => match File::open(&file) {
             Ok(mut f) => {
                 let mut buffers = Vec::new();

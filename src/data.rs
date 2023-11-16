@@ -31,6 +31,13 @@ impl RefValue {
             value,
         }
     }
+
+    pub fn symbolic(value: impl Into<String>) -> Self {
+        Self {
+            symbolic: true,
+            value: value.into(),
+        }
+    }
 }
 
 impl From<Error> for DateErr {
@@ -160,7 +167,7 @@ pub fn get_object(oid: &str, expected: DataType) -> Result<String, DateErr> {
     }
 }
 
-pub fn update_ref(ref_str: impl AsRef<str>, value: RefValue, deref: bool) {
+pub fn update_ref<T: AsRef<str>>(ref_str: T, value: RefValue, deref: bool) {
     let ref_str = ref_str.as_ref();
     let ref_str = get_ref_internal(ref_str, deref)
         .map(|(ref_str, _)| ref_str)
@@ -204,32 +211,30 @@ pub fn get_ref_recursive(ref_str: &str) -> Option<RefValue> {
 
 /// ['ref_str']: /ref/heads/branch or /refs/tags/test
 fn get_ref_internal(ref_str: &str, deref: bool) -> Option<(String, RefValue)> {
-    let path = PathBuf::from(GIT_DIR).join(ref_str);
-    if !path.is_file() {
-        return None;
-    }
-
     let value = {
-        let mut f = match File::open(path) {
-            Ok(f) => f,
-            Err(_) => return None,
-        };
-
-        let mut str = String::new();
-        match f.read_to_string(&mut str) {
-            Ok(_) => str,
-            Err(_) => return None,
+        let path = PathBuf::from(GIT_DIR).join(ref_str);
+        match File::open(path) {
+            Ok(mut f) => {
+                let mut str = String::new();
+                match f.read_to_string(&mut str) {
+                    Ok(_) => str,
+                    Err(_) => String::default(),
+                }
+            }
+            Err(_) => String::default(),
         }
     };
 
-    if let Some(str) = value.strip_prefix(REF_PREFIX) {
-        if deref {
-            get_ref_internal(str.trim(), deref)
-        } else {
-            Some((ref_str.to_string(), RefValue::direct(value)))
-        }
+    let (symbolic, value) = if let Some(symblock) = value.strip_prefix(REF_PREFIX) {
+        (true, symblock.to_string())
     } else {
-        Some((ref_str.to_string(), RefValue::direct(value)))
+        (false, value)
+    };
+
+    if symbolic && deref {
+        get_ref_internal(&value, deref)
+    } else {
+        Some((ref_str.to_string(), RefValue { symbolic, value }))
     }
 }
 

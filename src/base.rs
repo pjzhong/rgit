@@ -13,6 +13,11 @@ pub struct Commit {
     pub message: Option<String>,
 }
 
+pub fn init() {
+    data::init();
+    data::update_ref(data::HEAD, RefValue::symbolic("refs/heads/master"), true)
+}
+
 pub fn get_oid<T: AsRef<str>>(name: T) -> String {
     let name = name.as_ref();
 
@@ -234,7 +239,7 @@ pub fn checkout<T: AsRef<str>>(name: T) {
 
             data::update_ref(data::HEAD, ref_value, false)
         }
-        _ => eprintln!("checkout not exists commit, oid:{}", oid),
+        _ => eprintln!("checkout not exists commit, oid:{}", name),
     }
 }
 
