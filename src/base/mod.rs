@@ -240,7 +240,7 @@ pub fn checkout<T: AsRef<str>>(name: T) {
 
 pub fn create_tag(oid: &str, tag: &str) {
     update_ref(
-        &format!("refs/tags{tag}"),
+        format!("refs/tags{tag}"),
         RefValue::direct(oid.to_string()),
         true,
     )

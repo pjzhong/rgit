@@ -46,7 +46,7 @@ fn main() {
         Commands::CheckOut { commit } => base::checkout(commit),
         Commands::Tag { name, oid } => {
             let oid = if let Some(oid) = oid {
-                Some(base::get_oid(&oid))
+                Some(base::get_oid(oid))
             } else {
                 data::get_ref_recursive(data::HEAD).map(|val| val.value)
             };
@@ -63,7 +63,7 @@ fn main() {
 
 fn log(oid: Option<String>) {
     let head = if let Some(oid) = oid {
-        base::get_oid(&oid)
+        base::get_oid(oid)
     } else {
         data::get_ref_recursive(data::HEAD)
             .map(|head| head.value)
