@@ -58,6 +58,7 @@ fn main() {
         }
         Commands::K => k(),
         Commands::Branch { name, oid } => branch(&name, oid),
+        Commands::Status => status(),
     }
 }
 
@@ -124,4 +125,15 @@ fn branch(name: &str, oid: Option<String>) {
 
     base::create_branch(name, &oid);
     println!("Branch {name} created at {oid}");
+}
+
+
+fn status() {
+    let oid = base::get_oid(data::HEAD);
+    let branch = base::get_branch_name();
+    if let Some(branch) = branch {
+        println!("On branch {branch}")
+    } else {
+        println!("HEAD detached at {oid:10}")
+    }
 }

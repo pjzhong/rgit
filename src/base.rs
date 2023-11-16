@@ -286,3 +286,19 @@ pub fn create_branch<T: AsRef<str>>(name: T, oid: T) {
         true,
     );
 }
+
+pub fn get_branch_name() -> Option<String> {
+    let ref_value = match data::get_ref(data::HEAD, false) {
+        Some(ref_value) => ref_value,
+        None => return None,
+    };
+
+    if !ref_value.symbolic {
+        return None;
+    }
+
+    match ref_value.value.strip_prefix("refs/heads/") {
+        Some(branch_name) => Some(branch_name.to_string()),
+        None => None,
+    }
+}

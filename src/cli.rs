@@ -44,4 +44,7 @@ pub enum Commands {
     /// Create new branch
     #[command(name = "branch")]
     Branch { name: String, oid: Option<String> },
+    /// Show the working tree status
+    #[command(name = "status")]
+    Status,
 }
