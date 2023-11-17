@@ -129,11 +129,7 @@ fn branch(name: Option<String>, oid: Option<String>) {
     } else {
         let current = base::get_branch_name().unwrap_or_default();
         for name in iter_branch_names() {
-            let prefix = if name == current {
-                "*"
-            } else {
-                " "
-            };
+            let prefix = if name == current { "*" } else { " " };
             println!("{prefix} {name}")
         }
     }

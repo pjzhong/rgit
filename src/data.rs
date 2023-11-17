@@ -248,11 +248,9 @@ pub fn iter_branch_names() -> Vec<String> {
     let prefix = binding.to_str().unwrap_or_default();
     for ref_name in iter_refs_internal(prefix)
         .iter()
-        .map(|str| str.strip_prefix(prefix))
+        .filter_map(|str| str.strip_prefix(prefix))
     {
-        if let Some(ref_name) = ref_name {
-            branchs.push(ref_name.to_string());
-        }
+        branchs.push(ref_name.to_string());
     }
 
     branchs
