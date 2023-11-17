@@ -297,8 +297,8 @@ pub fn get_branch_name() -> Option<String> {
         return None;
     }
 
-    match ref_value.value.strip_prefix("refs/heads/") {
-        Some(branch_name) => Some(branch_name.to_string()),
-        None => None,
-    }
+    ref_value
+        .value
+        .strip_prefix("refs/heads/")
+        .map(str::to_string)
 }

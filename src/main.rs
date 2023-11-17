@@ -4,7 +4,7 @@ use clap::Parser;
 use rgit::{
     base,
     cli::{Cli, Commands},
-    data,
+    data::{self, iter_branch_names},
 };
 
 fn main() {
@@ -57,7 +57,7 @@ fn main() {
             }
         }
         Commands::K => k(),
-        Commands::Branch { name, oid } => branch(&name, oid),
+        Commands::Branch { name, oid } => branch(name, oid),
         Commands::Status => status(),
     }
 }
@@ -110,23 +110,34 @@ fn k() {
     println!("{dot}");
 }
 
-fn branch(name: &str, oid: Option<String>) {
-    let oid = if let Some(oid) = oid {
-        base::get_oid(oid)
-    } else {
-        match data::get_ref_recursive(data::HEAD) {
-            Some(head) => head.value,
-            None => {
-                eprintln!("No commit yet");
-                return;
+fn branch(name: Option<String>, oid: Option<String>) {
+    if let Some(name) = name {
+        let oid = if let Some(oid) = oid {
+            base::get_oid(oid)
+        } else {
+            match data::get_ref_recursive(data::HEAD) {
+                Some(head) => head.value,
+                None => {
+                    eprintln!("No commit yet");
+                    return;
+                }
             }
+        };
+
+        base::create_branch(&name, &oid);
+        println!("Branch {name} created at {oid}");
+    } else {
+        let current = base::get_branch_name().unwrap_or_default();
+        for name in iter_branch_names() {
+            let prefix = if name == current {
+                "*"
+            } else {
+                " "
+            };
+            println!("{prefix} {name}")
         }
-    };
-
-    base::create_branch(name, &oid);
-    println!("Branch {name} created at {oid}");
+    }
 }
-
 
 fn status() {
     let oid = base::get_oid(data::HEAD);

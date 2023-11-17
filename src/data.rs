@@ -239,6 +239,26 @@ fn get_ref_internal(ref_str: &str, deref: bool) -> Option<(String, RefValue)> {
 }
 
 pub fn iter_refs() -> Vec<String> {
+    iter_refs_internal("")
+}
+
+pub fn iter_branch_names() -> Vec<String> {
+    let mut branchs = vec![];
+    let binding = PathBuf::from("refs").join("heads").join("");
+    let prefix = binding.to_str().unwrap_or_default();
+    for ref_name in iter_refs_internal(prefix)
+        .iter()
+        .map(|str| str.strip_prefix(prefix))
+    {
+        if let Some(ref_name) = ref_name {
+            branchs.push(ref_name.to_string());
+        }
+    }
+
+    branchs
+}
+
+fn iter_refs_internal(prefix: &str) -> Vec<String> {
     let mut refs = vec![String::from(HEAD)];
 
     let refs_path = PathBuf::from(GIT_DIR).join("refs");
@@ -258,7 +278,13 @@ pub fn iter_refs() -> Vec<String> {
             };
 
             if file_type.is_file() {
-                if let Some(path) = dir.path().strip_prefix(GIT_DIR).ok().and_then(Path::to_str) {
+                if let Some(path) = dir
+                    .path()
+                    .strip_prefix(GIT_DIR)
+                    .ok()
+                    .and_then(Path::to_str)
+                    .filter(|str| str.starts_with(prefix))
+                {
                     refs.push(String::from(path));
                 }
             } else {

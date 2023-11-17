@@ -43,7 +43,10 @@ pub enum Commands {
     K,
     /// Create new branch
     #[command(name = "branch")]
-    Branch { name: String, oid: Option<String> },
+    Branch {
+        name: Option<String>,
+        oid: Option<String>,
+    },
     /// Show the working tree status
     #[command(name = "status")]
     Status,
