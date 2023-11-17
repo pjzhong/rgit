@@ -30,7 +30,7 @@ pub fn get_oid<T: AsRef<str>>(name: T) -> String {
     ];
 
     for name in refs_to_try {
-        if let Some(val) = get_ref(name, false) {
+        if let Some(val) = get_ref(name, false).filter(|ref_val| !ref_val.value.is_empty()) {
             return val.value;
         }
     }
