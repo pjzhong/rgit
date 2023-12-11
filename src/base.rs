@@ -229,6 +229,7 @@ pub fn checkout<T: AsRef<str>>(name: T) {
     match get_commit(&oid) {
         Some(Commit {
             tree: Some(tree_id),
+           
             ..
         }) => {
             read_tree(&tree_id);
