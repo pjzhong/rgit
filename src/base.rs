@@ -229,7 +229,6 @@ pub fn checkout<T: AsRef<str>>(name: T) {
     match get_commit(&oid) {
         Some(Commit {
             tree: Some(tree_id),
-           
             ..
         }) => {
             read_tree(&tree_id);
@@ -307,4 +306,15 @@ pub fn get_branch_name() -> Option<String> {
         .value
         .strip_prefix("refs/heads/")
         .map(str::to_string)
+}
+
+pub fn reset(oid: String) {
+    data::update_ref(
+        data::HEAD,
+        RefValue {
+            symbolic: false,
+            value: oid,
+        },
+        true,
+    );
 }

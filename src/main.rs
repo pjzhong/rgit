@@ -64,6 +64,9 @@ fn main() {
         Commands::K => k(),
         Commands::Branch { name, oid } => branch(name, oid),
         Commands::Status => status(),
+        Commands::Reset{oid} => {
+            reset(oid)
+        },
     }
 }
 
@@ -165,4 +168,8 @@ fn status() {
     } else {
         println!("HEAD detached at {oid:10}")
     }
+}
+
+fn reset(oid: String) {
+    base::reset(oid)
 }

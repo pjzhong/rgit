@@ -50,4 +50,9 @@ pub enum Commands {
     /// Show the working tree status
     #[command(name = "status")]
     Status,
+    /// Reset current HEAD to the specified state
+    #[command(name = "reset")]
+    Reset {
+        oid: String,
+    },
 }
