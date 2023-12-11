@@ -7,7 +7,7 @@ use std::{
 
 use clap::Parser;
 use rgit::{
-    base::{self, Commit},
+    base::{self, Commit, get_oid},
     cli::{Cli, Commands},
     data::{self, iter_branch_names},
 };
@@ -167,7 +167,7 @@ fn reset(oid: String) {
 }
 
 fn show(oid: Option<String>) {
-    let oid = if let Some(oid) = oid { oid } else { return };
+    let oid = if let Some(oid) = oid { get_oid(oid) } else { return };
 
     match base::get_commit(&oid) {
         Some(commit) => print_commit(&oid, commit, &vec![]),
