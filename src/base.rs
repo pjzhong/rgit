@@ -171,7 +171,7 @@ pub fn commit(message: &str) -> Result<String, DateErr> {
     };
 
     let mut commit = format!("tree {oid}\n");
-    if let Some(head) = get_ref_recursive(data::HEAD) {
+    if let Some(head) = get_ref_recursive(data::HEAD).filter(|head| !head.value.is_empty()) {
         commit.push_str(&format!("parent {}\n", head.value));
     } else {
         commit.push('\n');
@@ -217,7 +217,7 @@ pub fn get_commit<T: AsRef<str>>(oid: &T) -> Option<Commit> {
             })
         }
         Err(e) => {
-            eprintln!("get_commit err, oid:{:?}, err:{:?}", oid, e);
+            eprintln!("get_commit err, oid:{:?}, oid:{:?}, err:{:?}", oid, oid, e);
             None
         }
     }

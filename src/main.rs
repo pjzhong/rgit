@@ -1,8 +1,13 @@
-use std::{collections::HashSet, fs::File, io::Read, path::PathBuf};
+use std::{
+    collections::{HashMap, HashSet},
+    fs::File,
+    io::Read,
+    path::PathBuf,
+};
 
 use clap::Parser;
 use rgit::{
-    base,
+    base::{self},
     cli::{Cli, Commands},
     data::{self, iter_branch_names},
 };
@@ -71,9 +76,26 @@ fn log(oid: Option<String>) {
             .unwrap_or_default()
     };
 
+    let mut refs: HashMap<String, HashSet<String>> = HashMap::new();
+    for ref_name in data::iter_refs() {
+        if let Some(oid) = data::get_ref_recursive(&ref_name) {
+            refs.entry(oid.value).or_default().insert(ref_name);
+        }
+    }
+
     for oid in base::iter_commits_and_parents(vec![head]) {
         if let Some(commit) = base::get_commit(&oid) {
-            println!("commit {}", oid);
+            let refs_str = if let Some(refs) = refs.get(&oid) {
+                let mut str = String::from(" ");
+                for ref_name in refs {
+                    str.push_str(&format!(",{ref_name}"));
+                }
+
+                str
+            } else {
+                String::new()
+            };
+            println!("commit {}{}", oid, refs_str);
             println!("       {}", commit.message.unwrap_or_default());
         }
     }
