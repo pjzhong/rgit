@@ -52,7 +52,8 @@ pub enum Commands {
     Status,
     /// Reset current HEAD to the specified state
     #[command(name = "reset")]
-    Reset {
-        oid: String,
-    },
+    Reset { oid: String },
+    /// Show various types of objects
+    #[command(name = "show")]
+    Show { oid: Option<String> },
 }

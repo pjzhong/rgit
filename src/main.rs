@@ -7,7 +7,7 @@ use std::{
 
 use clap::Parser;
 use rgit::{
-    base::{self},
+    base::{self, Commit},
     cli::{Cli, Commands},
     data::{self, iter_branch_names},
 };
@@ -64,9 +64,8 @@ fn main() {
         Commands::K => k(),
         Commands::Branch { name, oid } => branch(name, oid),
         Commands::Status => status(),
-        Commands::Reset{oid} => {
-            reset(oid)
-        },
+        Commands::Reset { oid } => reset(oid),
+        Commands::Show { oid } => show(oid),
     }
 }
 
@@ -79,27 +78,20 @@ fn log(oid: Option<String>) {
             .unwrap_or_default()
     };
 
-    let mut refs: HashMap<String, HashSet<String>> = HashMap::new();
+    let mut refs: HashMap<String, Vec<String>> = HashMap::new();
     for ref_name in data::iter_refs() {
         if let Some(oid) = data::get_ref_recursive(&ref_name) {
-            refs.entry(oid.value).or_default().insert(ref_name);
+            let refs = refs.entry(oid.value).or_default();
+            refs.push(ref_name);
         }
     }
 
     for oid in base::iter_commits_and_parents(vec![head]) {
         if let Some(commit) = base::get_commit(&oid) {
-            let refs_str = if let Some(refs) = refs.get(&oid) {
-                let mut str = String::from(" ");
-                for ref_name in refs {
-                    str.push_str(&format!(",{ref_name}"));
-                }
-
-                str
-            } else {
-                String::new()
+            match refs.get(&oid) {
+                Some(refs) => print_commit(&oid, commit, refs),
+                None => print_commit(&oid, commit, &[]),
             };
-            println!("commit {}{}", oid, refs_str);
-            println!("       {}", commit.message.unwrap_or_default());
         }
     }
 }
@@ -172,4 +164,21 @@ fn status() {
 
 fn reset(oid: String) {
     base::reset(oid)
+}
+
+fn show(oid: Option<String>) {
+    let oid = if let Some(oid) = oid { oid } else { return };
+
+    match base::get_commit(&oid) {
+        Some(commit) => print_commit(&oid, commit, &vec![]),
+        None => {
+            eprint!("Show command can't not find commit, oid:{}", oid);
+        }
+    }
+}
+
+fn print_commit(oid: &str, commit: Commit, refs: &[String]) {
+    let refs_str = refs.join(",");
+    println!("commit {oid}{refs_str}");
+    println!("       {}", commit.message.unwrap_or_default());
 }
