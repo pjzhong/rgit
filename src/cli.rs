@@ -56,4 +56,7 @@ pub enum Commands {
     /// Show various types of objects
     #[command(name = "show")]
     Show { oid: Option<String> },
+    /// Show the changed files
+    #[command(name = "diff")]
+    Diff { oid: String },
 }

@@ -7,9 +7,10 @@ use std::{
 
 use clap::Parser;
 use rgit::{
-    base::{self, Commit, get_oid},
+    base::{self, get_oid, Commit},
     cli::{Cli, Commands},
     data::{self, iter_branch_names},
+    diff,
 };
 
 fn main() {
@@ -66,6 +67,7 @@ fn main() {
         Commands::Status => status(),
         Commands::Reset { oid } => reset(oid),
         Commands::Show { oid } => show(oid),
+        Commands::Diff { oid } => diff(&oid),
     }
 }
 
@@ -89,8 +91,8 @@ fn log(oid: Option<String>) {
     for oid in base::iter_commits_and_parents(vec![head]) {
         if let Some(commit) = base::get_commit(&oid) {
             match refs.get(&oid) {
-                Some(refs) => print_commit(&oid, commit, refs),
-                None => print_commit(&oid, commit, &[]),
+                Some(refs) => print_commit(&oid, &commit, refs),
+                None => print_commit(&oid, &commit, &[]),
             };
         }
     }
@@ -167,18 +169,54 @@ fn reset(oid: String) {
 }
 
 fn show(oid: Option<String>) {
-    let oid = if let Some(oid) = oid { get_oid(oid) } else { return };
+    let oid = if let Some(oid) = oid {
+        get_oid(oid)
+    } else {
+        return;
+    };
 
     match base::get_commit(&oid) {
-        Some(commit) => print_commit(&oid, commit, &vec![]),
+        Some(commit) => print_commit(&oid, &commit, &[]),
         None => {
             eprint!("Show command can't not find commit, oid:{}", oid);
         }
     }
 }
 
-fn print_commit(oid: &str, commit: Commit, refs: &[String]) {
+fn print_commit(oid: &str, commit: &Commit, refs: &[String]) {
     let refs_str = refs.join(",");
-    println!("commit {oid}{refs_str}");
-    println!("       {}", commit.message.unwrap_or_default());
+    println!("commit {oid} {refs_str}");
+    println!(
+        "       {}",
+        if let Some(msg) = commit.message.as_ref() {
+            &msg
+        } else {
+            ""
+        }
+    );
+}
+
+fn diff(oid: &str) {
+    let commit = match base::get_commit(&oid) {
+        Some(commit) => commit,
+        None => return,
+    };
+
+    print_commit(oid, &commit, &[]);
+
+    let parent_commit = match commit.parent {
+        Some(parent_oid) => base::get_commit(&parent_oid),
+        None => None,
+    };
+    if let (Some(tree), Some(parent_tree)) = (commit.tree, parent_commit.and_then(|c| c.tree)) {
+        let path = PathBuf::from(std::path::MAIN_SEPARATOR_STR);
+
+        if let (Some(t_from), Some(t_to)) = (
+            base::get_tree(&tree, &path),
+            base::get_tree(&parent_tree, &path),
+        ) {
+            let output = diff::diff_tree(&t_from, &t_to);
+            println!("{output}");
+        }
+    }
 }
