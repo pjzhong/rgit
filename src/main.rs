@@ -204,17 +204,12 @@ fn diff(oid: &str) {
 
     print_commit(oid, &commit, &[]);
 
-    let parent_commit = match commit.parent {
-        Some(parent_oid) => base::get_commit(&parent_oid),
-        None => None,
-    };
-    if let (Some(tree), Some(parent_tree)) = (commit.tree, parent_commit.and_then(|c| c.tree)) {
-        let path = PathBuf::from(std::path::MAIN_SEPARATOR_STR);
+    if let Some(tree) = commit.tree {
+        let path = PathBuf::from(".");
 
-        if let (Some(t_from), Some(t_to)) = (
-            base::get_tree(&tree, &path),
-            base::get_tree(&parent_tree, &path),
-        ) {
+        if let (Some(t_from), Some(t_to)) =
+            (base::get_tree(&tree, &path), Some(base::get_working_tree()))
+        {
             let output = diff::diff_tree(&t_from, &t_to);
             println!("{output}");
         }

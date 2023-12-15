@@ -318,3 +318,37 @@ pub fn reset(oid: String) {
         true,
     );
 }
+
+pub fn get_working_tree() -> HashMap<PathBuf, String> {
+    let read_dir = match PathBuf::from(".").read_dir() {
+        Ok(read_dir) => read_dir,
+        Err(_) => return HashMap::new(),
+    };
+
+    let mut dirs = LinkedList::new();
+    dirs.push_back(read_dir);
+    let mut entires = HashMap::new();
+    while let Some(read_dir) = dirs.pop_front() {
+        for path in read_dir.filter_map(Result::ok) {
+            let path = path.path();
+            if is_ignored(&path) {
+                continue;
+            }
+
+            if path.is_file() {
+                match data::hash_object(&path) {
+                    Ok(hex) => {
+                        entires.insert(path, hex);
+                    }
+                    Err(e) => {
+                        eprintln!("write_tree_hash_object error, file:{:?} err:{:?}", path, e)
+                    }
+                }
+            } else if let Ok(dir) = path.read_dir() {
+                    dirs.push_back(dir);
+            }
+        }
+    }
+
+    entires
+}
