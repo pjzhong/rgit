@@ -162,6 +162,23 @@ fn status() {
     } else {
         println!("HEAD detached at {oid:10}")
     }
+
+    let tree_id = match data::get_ref_recursive(&oid)
+        .and_then(|r| base::get_commit(&r.value))
+        .and_then(|c| c.tree)
+    {
+        Some(tree_id) => tree_id,
+        None => return,
+    };
+
+    let path = PathBuf::from(".");
+    if let Some(tree_map) = base::get_tree(&tree_id, &path) {
+        let actions = diff::iter_changed_files(&tree_map, &base::get_working_tree());
+        println!("\nChanges to be committed:");
+        for (path, action) in actions {
+            println!("{:>12}: {:?}", action, path);
+        }
+    }
 }
 
 fn reset(oid: String) {

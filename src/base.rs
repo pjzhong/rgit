@@ -217,7 +217,7 @@ pub fn get_commit<T: AsRef<str>>(oid: &T) -> Option<Commit> {
             })
         }
         Err(e) => {
-            eprintln!("get_commit err, oid:{:?}, oid:{:?}, err:{:?}", oid, oid, e);
+            eprintln!("get_commit err, oid:{:?}, err:{:?}", oid, e);
             None
         }
     }
@@ -345,7 +345,7 @@ pub fn get_working_tree() -> HashMap<PathBuf, String> {
                     }
                 }
             } else if let Ok(dir) = path.read_dir() {
-                    dirs.push_back(dir);
+                dirs.push_back(dir);
             }
         }
     }
