@@ -15,6 +15,7 @@ pub const DELIMITER: u8 = b'\x00';
 #[derive(Debug)]
 pub enum DateErr {
     ContentMisMatch(String),
+    TreeNotExists(String),
     Io(Error),
     Err(String),
 }

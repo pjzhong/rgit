@@ -5,7 +5,10 @@ use std::{
     path::{Path, PathBuf},
 };
 
-use crate::data::{self, get_ref, get_ref_recursive, update_ref, DataType, DateErr, RefValue};
+use crate::{
+    data::{self, get_ref, get_ref_recursive, update_ref, DataType, DateErr, RefValue},
+    diff,
+};
 
 pub struct Commit {
     pub tree: Option<String>,
@@ -95,6 +98,11 @@ fn is_ignored(path: &Path) -> bool {
     }
 
     false
+}
+
+pub fn get_tree_in_base(oid: &str) -> Option<HashMap<PathBuf, String>> {
+    let path = PathBuf::from(".");
+    get_tree(oid, &path)
 }
 
 /// 递归式读取整个仓库
@@ -187,7 +195,7 @@ pub fn commit(message: &str) -> Result<String, DateErr> {
     }
 }
 
-pub fn get_commit<T: AsRef<str>>(oid: &T) -> Option<Commit> {
+pub fn get_commit<T: AsRef<str>>(oid: T) -> Option<Commit> {
     let oid = oid.as_ref();
     match data::get_object(oid, DataType::Commit) {
         Ok(content) => {
@@ -353,4 +361,72 @@ pub fn get_working_tree() -> HashMap<PathBuf, String> {
     entires
 }
 
-pub fn merge(commit: &str) {}
+fn read_tree_merged(t_head: &str, t_other: &str) -> Result<(), DateErr> {
+    //TODO check is there un commit changes?
+    let t_head_tree = match get_tree_in_base(t_head) {
+        Some(tree) => tree,
+        None => return Err(DateErr::TreeNotExists(String::from(t_head))),
+    };
+
+    let t_other_tree = match get_tree_in_base(t_other) {
+        Some(tree) => tree,
+        None => return Err(DateErr::TreeNotExists(String::from(t_other))),
+    };
+
+    let merge_tress = match diff::merge_tress(&t_head_tree, &t_other_tree) {
+        Ok(merged_tree) => merged_tree,
+        Err(err) => return Err(err),
+    };
+
+    for (path, content) in merge_tress {
+        if let Some(parent) = path.parent() {
+            if let Err(e) = fs::create_dir_all(parent) {
+                return Err(DateErr::Io(e));
+            }
+        }
+
+        match File::options()
+            .write(true)
+            .create(true)
+            .truncate(true)
+            .open(&path)
+        {
+            Ok(mut f) => {
+                if let Err(e) = f.write_all(content.as_bytes()) {
+                    eprintln!("read_tree_merged write err file:{:?}, oid:{:?}", path, e);
+                }
+            }
+            Err(e) => eprintln!("read_tree_merged open file error:{:?}", e),
+        }
+    }
+
+    Ok(())
+}
+
+pub fn merge(commit: &str) {
+    let c_head = match data::get_ref_recursive(data::HEAD)
+        .filter(|refvalue| !refvalue.value.is_empty())
+        .and_then(|refvalue| get_commit(refvalue.value))
+        .and_then(|commit| commit.tree)
+    {
+        Some(c_head) => c_head,
+        None => {
+            eprintln!("merge failed, commit not exists:{:?}", data::HEAD);
+            return;
+        }
+    };
+
+    let c_other = match get_commit(commit).and_then(|commit| commit.tree) {
+        Some(c_head) => c_head,
+        None => {
+            eprintln!("merge failed, commit not exists:{:?}", commit);
+            return;
+        }
+    };
+
+    if let Err(err) = read_tree_merged(&c_head, &c_other) {
+        eprintln!("merge failed err:{:?}", err);
+    } else {
+        println!("Merged in working tree");
+    }
+}

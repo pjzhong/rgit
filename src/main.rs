@@ -68,7 +68,7 @@ fn main() {
         Commands::Reset { oid } => reset(oid),
         Commands::Show { oid } => show(oid),
         Commands::Diff { oid } => diff(&oid),
-        Commands::Merge { commit } => {}
+        Commands::Merge { commit } => merge(commit),
     }
 }
 
@@ -165,7 +165,7 @@ fn status() {
     }
 
     let tree_id = match data::get_ref_recursive(&oid)
-        .and_then(|r| base::get_commit(&r.value))
+        .and_then(|r| base::get_commit(r.value))
         .and_then(|c| c.tree)
     {
         Some(tree_id) => tree_id,
@@ -215,7 +215,7 @@ fn print_commit(oid: &str, commit: &Commit, refs: &[String]) {
 }
 
 fn diff(oid: &str) {
-    let commit = match base::get_commit(&oid) {
+    let commit = match base::get_commit(oid) {
         Some(commit) => commit,
         None => return,
     };

@@ -8,3 +8,4 @@ edition = "2021"
 [dependencies]
 clap = {version = "4.4.6", features = ["derive"]}
 rust-crypto = "0.2.36"
+tempfile = "3.8.1"
