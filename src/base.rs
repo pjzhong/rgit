@@ -352,3 +352,5 @@ pub fn get_working_tree() -> HashMap<PathBuf, String> {
 
     entires
 }
+
+pub fn merge(commit: &str) {}

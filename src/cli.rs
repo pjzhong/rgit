@@ -59,4 +59,7 @@ pub enum Commands {
     /// Show the changed files
     #[command(name = "diff")]
     Diff { oid: String },
+    /// Join two or more development histories together
+    #[command(name = "merge")]
+    Merge { commit: String },
 }

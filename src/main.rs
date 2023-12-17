@@ -68,6 +68,7 @@ fn main() {
         Commands::Reset { oid } => reset(oid),
         Commands::Show { oid } => show(oid),
         Commands::Diff { oid } => diff(&oid),
+        Commands::Merge { commit } => {}
     }
 }
 
@@ -231,4 +232,8 @@ fn diff(oid: &str) {
             println!("{output}");
         }
     }
+}
+
+fn merge(commit: String) {
+    base::merge(&commit);
 }
