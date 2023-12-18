@@ -120,7 +120,7 @@ fn k() {
             dot.push_str(&format!(
                 "\"{oid}\" [shape=box style=filled label=\"{oid}\"]\n"
             ));
-            if let Some(parent) = commit.parent {
+            for parent in commit.parents {
                 dot.push_str(&format!("\"{oid}\" -> \"{parent}\"\n"));
             }
         }

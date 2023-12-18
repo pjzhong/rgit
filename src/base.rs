@@ -12,7 +12,7 @@ use crate::{
 
 pub struct Commit {
     pub tree: Option<String>,
-    pub parent: Option<String>,
+    pub parents: Vec<String>,
     pub message: Option<String>,
 }
 
@@ -33,7 +33,10 @@ pub fn get_oid<T: AsRef<str>>(name: T) -> String {
     ];
 
     for name in refs_to_try {
-        if let Some(val) = get_ref(name, false).filter(|ref_val| !ref_val.value.is_empty()) {
+        if let Some(val) = get_ref(name, false)
+            .filter(|ref_val| ref_val.symbolic)
+            .filter(|ref_val| !ref_val.value.is_empty())
+        {
             return val.value;
         }
     }
@@ -211,16 +214,15 @@ pub fn get_commit<T: AsRef<str>>(oid: T) -> Option<Commit> {
                 .next()
                 .and_then(|s| s.strip_prefix(TREE_PREFIX))
                 .map(str::to_string);
-            let parent = lines
-                .next()
-                .and_then(|s| s.strip_prefix(PARENT_PREFIX))
-                .map(str::to_string);
-            let _ = lines.next();
+            let mut parents = vec![];
+            while let Some(s) = lines.next().and_then(|s| s.strip_prefix(PARENT_PREFIX)) {
+                parents.push(s.to_string());
+            }
             let message = lines.collect::<String>();
 
             Some(Commit {
                 tree,
-                parent,
+                parents,
                 message: Some(message),
             })
         }
@@ -278,8 +280,10 @@ pub fn iter_commits_and_parents(oids: Vec<String>) -> Vec<String> {
             continue;
         }
 
-        if let Some(parent) = get_commit(&oid).and_then(|c| c.parent) {
-            oids.push_back(parent);
+        if let Some(parents) = get_commit(&oid).map(|c| c.parents) {
+            for parent in parents {
+                oids.push_back(parent);
+            }
         }
 
         commits.push(oid.clone());
