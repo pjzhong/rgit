@@ -168,11 +168,20 @@ pub fn get_object(oid: &str, expected: DataType) -> Result<String, DateErr> {
     }
 }
 
+pub fn delete_ref(ref_str: &str, deref: bool) -> Result<(), DateErr> {
+    let (ref_str, _) = get_ref_internal(ref_str, deref);
+    let path = PathBuf::from(GIT_DIR).join(ref_str);
+    if path.is_file() {
+        if let Err(err) = fs::remove_file(path) {
+            return Err(DateErr::Io(err));
+        }
+    }
+    Ok(())
+}
+
 pub fn update_ref<T: AsRef<str>>(ref_str: T, value: RefValue, deref: bool) {
     let ref_str = ref_str.as_ref();
-    let ref_str = get_ref_internal(ref_str, deref)
-        .map(|(ref_str, _)| ref_str)
-        .unwrap_or_else(|| ref_str.to_string());
+    let ref_str = get_ref_internal(ref_str, deref).0;
 
     let path = PathBuf::from(GIT_DIR).join(ref_str);
 
@@ -203,15 +212,15 @@ pub fn update_ref<T: AsRef<str>>(ref_str: T, value: RefValue, deref: bool) {
 }
 
 pub fn get_ref(ref_str: &str, deref: bool) -> Option<RefValue> {
-    get_ref_internal(ref_str, deref).map(|(_, val)| val)
+    Some(get_ref_internal(ref_str, deref).1)
 }
 
 pub fn get_ref_recursive(ref_str: &str) -> Option<RefValue> {
-    get_ref_internal(ref_str, true).map(|(_, val)| val)
+    Some(get_ref_internal(ref_str, true).1)
 }
 
 /// ['ref_str']: /ref/heads/branch or /refs/tags/test
-fn get_ref_internal(ref_str: &str, deref: bool) -> Option<(String, RefValue)> {
+fn get_ref_internal(ref_str: &str, deref: bool) -> (String, RefValue) {
     let value = {
         let path = PathBuf::from(GIT_DIR).join(ref_str);
         match File::open(path) {
@@ -235,7 +244,7 @@ fn get_ref_internal(ref_str: &str, deref: bool) -> Option<(String, RefValue)> {
     if symbolic && deref {
         get_ref_internal(&value, deref)
     } else {
-        Some((ref_str.to_string(), RefValue { symbolic, value }))
+        (ref_str.to_string(), RefValue { symbolic, value })
     }
 }
 
