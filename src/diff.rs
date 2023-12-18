@@ -35,18 +35,10 @@ pub fn iter_changed_files(
         let action = match (t_from.get(k), t_to.get(k)) {
             (None, Some(_)) => "new file",
             (Some(_), None) => "deleted",
-            (Some(a), Some(b)) => {
-                if a != b {
-                    "modified"
-                } else {
-                    ""
-                }
-            }
+            (Some(_), Some(_)) => "modified",
             (None, None) => "Unknow files",
         };
-        if !action.is_empty() {
-            map.insert(k.clone(), String::from(action));
-        }
+        map.insert(k.clone(), String::from(action));
     }
 
     map

@@ -184,7 +184,8 @@ pub fn commit(message: &str) -> Result<String, DateErr> {
     } else {
         commit.push('\n');
     }
-    if let Some(head) = get_ref_recursive(data::HEAD).filter(|head| !head.value.is_empty()) {
+
+    if let Some(head) = get_ref_recursive(data::MERGE_HEAD).filter(|head| !head.value.is_empty()) {
         commit.push_str(&format!("parent {}\n", head.value));
         if let Err(err) = data::delete_ref(data::MERGE_HEAD, true) {
             println!("commit, delete merge head error, err:{:?}", err);
