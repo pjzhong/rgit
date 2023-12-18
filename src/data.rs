@@ -9,6 +9,7 @@ use crypto::sha1::Sha1;
 
 pub const GIT_DIR: &str = ".rgit";
 pub const HEAD: &str = "HEAD";
+pub const MERGE_HEAD: &str = "MERGE_HEAD";
 pub const REF_PREFIX: &str = "ref: ";
 pub const DELIMITER: u8 = b'\x00';
 
@@ -217,6 +218,10 @@ pub fn get_ref(ref_str: &str, deref: bool) -> Option<RefValue> {
 
 pub fn get_ref_recursive(ref_str: &str) -> Option<RefValue> {
     Some(get_ref_internal(ref_str, true).1)
+}
+
+pub fn get_ref_if_not_empty(ref_str: &str) -> Option<RefValue> {
+    Some(get_ref_internal(ref_str, true).1).filter(|ref_val| !ref_val.value.is_empty())
 }
 
 /// ['ref_str']: /ref/heads/branch or /refs/tags/test

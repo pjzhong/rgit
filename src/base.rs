@@ -187,6 +187,14 @@ pub fn commit(message: &str) -> Result<String, DateErr> {
     } else {
         commit.push('\n');
     }
+    if let Some(head) = get_ref_recursive(data::HEAD).filter(|head| !head.value.is_empty()) {
+        commit.push_str(&format!("parent {}\n", head.value));
+        if let Err(err) = data::delete_ref(data::MERGE_HEAD, true) {
+            println!("commit, delete merge head error, err:{:?}", err);
+        }
+    } else {
+        commit.push('\n');
+    }
     commit.push_str(&format!("\n{message}\n"));
 
     match data::hash(commit.as_bytes(), DataType::Commit) {
@@ -407,7 +415,7 @@ fn read_tree_merged(t_head: &str, t_other: &str) -> Result<(), DateErr> {
     Ok(())
 }
 
-pub fn merge(commit: &str) {
+pub fn merge(other: &str) {
     let c_head = match data::get_ref_recursive(data::HEAD)
         .filter(|refvalue| !refvalue.value.is_empty())
         .and_then(|refvalue| get_commit(refvalue.value))
@@ -420,17 +428,27 @@ pub fn merge(commit: &str) {
         }
     };
 
-    let c_other = match get_commit(commit).and_then(|commit| commit.tree) {
+    let c_other = match get_commit(other).and_then(|commit| commit.tree) {
         Some(c_head) => c_head,
         None => {
-            eprintln!("merge failed, commit not exists:{:?}", commit);
+            eprintln!("merge failed, commit not exists:{:?}", other);
             return;
         }
     };
 
+    data::update_ref(data::MERGE_HEAD, RefValue::direct(other.to_string()), true);
+
     if let Err(err) = read_tree_merged(&c_head, &c_other) {
         eprintln!("merge failed err:{:?}", err);
     } else {
-        println!("Merged in working tree");
+        data::update_ref(
+            data::MERGE_HEAD,
+            RefValue {
+                symbolic: false,
+                value: other.to_string(),
+            },
+            true,
+        );
+        println!("Merged in working tree\nPlease commit");
     }
 }

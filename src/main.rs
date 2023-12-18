@@ -172,6 +172,10 @@ fn status() {
         None => return,
     };
 
+    if let Some(ref_value) = data::get_ref_if_not_empty(data::MERGE_HEAD) {
+        println!("Merging with {}", ref_value.value);
+    }
+
     let path = PathBuf::from(".");
     if let Some(tree_map) = base::get_tree(&tree_id, &path) {
         let actions = diff::iter_changed_files(&tree_map, &base::get_working_tree());
