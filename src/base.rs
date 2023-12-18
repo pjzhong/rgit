@@ -33,10 +33,7 @@ pub fn get_oid<T: AsRef<str>>(name: T) -> String {
     ];
 
     for name in refs_to_try {
-        if let Some(val) = get_ref(name, false)
-            .filter(|ref_val| ref_val.symbolic)
-            .filter(|ref_val| !ref_val.value.is_empty())
-        {
+        if let Some(val) = get_ref(name, false).filter(|ref_val| !ref_val.value.is_empty()) {
             return val.value;
         }
     }
@@ -428,7 +425,8 @@ pub fn merge(other: &str) {
         }
     };
 
-    let c_other = match get_commit(other).and_then(|commit| commit.tree) {
+    let other = get_oid(other);
+    let c_other = match get_commit(&other).and_then(|commit| commit.tree) {
         Some(c_head) => c_head,
         None => {
             eprintln!("merge failed, commit not exists:{:?}", other);
