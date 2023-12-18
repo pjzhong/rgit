@@ -272,7 +272,7 @@ pub fn iter_branch_names() -> Vec<String> {
 }
 
 fn iter_refs_internal(prefix: &str) -> Vec<String> {
-    let mut refs = vec![String::from(HEAD)];
+    let mut refs = vec![String::from(HEAD), String::from(MERGE_HEAD)];
 
     let refs_path = PathBuf::from(GIT_DIR).join("refs");
     let mut dirs = LinkedList::new();
