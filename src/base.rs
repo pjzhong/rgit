@@ -434,7 +434,26 @@ pub fn merge(other: &str) {
             return;
         }
     };
+    
+    let other = get_oid(other);
+    let merge_base = get_merge_base(&head, &other);
 
+    let c_other = match get_commit(&other).and_then(|commit| commit.tree) {
+        Some(c_other) => c_other,
+        None => {
+            eprintln!("merge failed, commit not exists:{:?}", other);
+            return;
+        }
+    };
+
+    if merge_base.as_ref().filter(|merge_base| *merge_base == &other).is_some() {
+       read_tree(&c_other);
+       data::update_ref(data::HEAD, RefValue::direct(other.to_string()), true);
+       println!("Fast-forward merge, no need to commit");
+       return;
+    }
+
+    
     let c_head = match get_commit(&head).and_then(|commit| commit.tree) {
         Some(c_head) => c_head,
         None => {
@@ -443,16 +462,8 @@ pub fn merge(other: &str) {
         }
     };
 
-    let other = get_oid(other);
-    let c_other = match get_commit(&other).and_then(|commit| commit.tree) {
-        Some(c_head) => c_head,
-        None => {
-            eprintln!("merge failed, commit not exists:{:?}", other);
-            return;
-        }
-    };
 
-    let merge_base = get_merge_base(&head, &other)
+    let merge_base = merge_base
         .and_then(|base| get_commit(&base))
         .and_then(|base_commit| base_commit.tree);
 
