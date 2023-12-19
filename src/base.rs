@@ -446,7 +446,7 @@ pub fn merge(other: &str) {
         }
     };
 
-    if merge_base.as_ref().filter(|merge_base| *merge_base == &other).is_some() {
+    if merge_base.as_ref().filter(|merge_base| *merge_base == &head).is_some() {
        read_tree(&c_other);
        data::update_ref(data::HEAD, RefValue::direct(other.to_string()), true);
        println!("Fast-forward merge, no need to commit");
