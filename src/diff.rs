@@ -11,7 +11,7 @@ use crate::data::{self, DateErr};
 
 //比较两个目录，同一个key指向不同内容，则发生了变化
 pub fn diff_tree(t_from: &HashMap<PathBuf, String>, t_to: &HashMap<PathBuf, String>) -> String {
-    let keys = merge_key(t_from, t_to);
+    let keys = merge_key(vec![t_from, t_to]);
 
     let mut output = String::new();
     for k in keys {
@@ -28,7 +28,7 @@ pub fn iter_changed_files(
     t_from: &HashMap<PathBuf, String>,
     t_to: &HashMap<PathBuf, String>,
 ) -> HashMap<PathBuf, String> {
-    let keys = merge_key(t_from, t_to);
+    let keys = merge_key(vec![t_from, t_to]);
 
     let mut map = HashMap::new();
     for k in keys {
@@ -53,32 +53,32 @@ pub fn iter_changed_files(
     map
 }
 
-fn merge_key<'a>(
-    t_from: &'a HashMap<PathBuf, String>,
-    t_to: &'a HashMap<PathBuf, String>,
-) -> HashSet<&'a PathBuf> {
+fn merge_key(trees: Vec<&HashMap<PathBuf, String>>) -> HashSet<&PathBuf> {
     let mut keys = HashSet::new();
-    for k in t_from.keys() {
-        keys.insert(k);
-    }
-
-    for k in t_to.keys() {
-        keys.insert(k);
+    for tree in trees {
+        for k in tree.keys() {
+            keys.insert(k);
+        }
     }
 
     keys
 }
 
 pub fn merge_tress(
+    t_base: &HashMap<PathBuf, String>,
     t_from: &HashMap<PathBuf, String>,
     t_to: &HashMap<PathBuf, String>,
 ) -> Result<HashMap<PathBuf, String>, DateErr> {
-    let keys = merge_key(t_from, t_to);
+    let keys = merge_key(vec![t_base, t_from, t_to]);
 
     let mut tree = HashMap::new();
     for k in keys {
-        let (from, other) = (t_from.get(k), t_to.get(k));
-        match merge_blobs(from.map(String::as_str), other.map(String::as_str)) {
+        let (base, from, other) = (t_base.get(k), t_from.get(k), t_to.get(k));
+        match merge_blobs(
+            base.map(String::as_str),
+            from.map(String::as_str),
+            other.map(String::as_str),
+        ) {
             Ok(content) => {
                 tree.insert(k.clone(), content);
             }
@@ -89,47 +89,73 @@ pub fn merge_tress(
     Ok(tree)
 }
 
-pub fn merge_blobs(o_head: Option<&str>, o_other: Option<&str>) -> Result<String, DateErr> {
+pub fn merge_blobs(
+    o_base: Option<&str>,
+    o_head: Option<&str>,
+    o_other: Option<&str>,
+) -> Result<String, DateErr> {
+    let mut f_base = match NamedTempFile::new() {
+        Ok(f_base) => f_base,
+        Err(err) => return Err(DateErr::Io(err)),
+    };
+
     let mut f_head = match NamedTempFile::new() {
         Ok(f_head) => f_head,
         Err(err) => return Err(DateErr::Io(err)),
     };
+
     let mut f_other = match NamedTempFile::new() {
         Ok(f_ohter) => f_ohter,
         Err(err) => return Err(DateErr::Io(err)),
     };
 
-    for (oid, f) in [(o_head, &mut f_head), (o_other, &mut f_other)] {
-        let oid = match oid {
-            Some(oid) => oid,
+    for (content, f) in [
+        (o_base, &mut f_base),
+        (o_head, &mut f_head),
+        (o_other, &mut f_other),
+    ] {
+        let content = match content {
+            Some(content) => content,
             None => continue,
         };
 
-        match data::get_object(oid, data::DataType::None) {
+        match data::get_object(content, data::DataType::None) {
             Ok(content) => {
                 if let Err(err) = f.as_file_mut().write_all(content.as_bytes()) {
                     eprintln!(
                         "merge_blogs, write temp file failed, oid:{:?}, err:{:?}",
-                        oid, err
+                        content, err
                     );
                 }
             }
             Err(err) => {
                 eprintln!(
                     "merge_blogs, get_object failed, oid:{:?}, err:{:?}",
-                    oid, err
+                    content, err
                 );
             }
         }
     }
 
-    let (f_head_path_str, f_other_path_str) = (
+    let (f_base_path_str, f_head_path_str, f_other_path_str) = (
+        f_base.path().to_string_lossy(),
         f_head.path().to_string_lossy(),
         f_other.path().to_string_lossy(),
     );
 
-    match Command::new("diff")
-        .args(["-DHEAD", &f_head_path_str, &f_other_path_str])
+    match Command::new("diff3")
+        .args([
+            "-m",
+            "-L",
+            "HEAD",
+            &f_head_path_str,
+            "-L",
+            "BASE",
+            &f_base_path_str,
+            "-L",
+            "MERGE_HEAD",
+            &f_other_path_str,
+        ])
         .output()
     {
         Ok(output) => Ok(String::from_utf8_lossy(output.stdout.as_slice()).to_string()),

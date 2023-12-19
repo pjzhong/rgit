@@ -376,7 +376,12 @@ pub fn get_working_tree() -> HashMap<PathBuf, String> {
     entires
 }
 
-fn read_tree_merged(t_head: &str, t_other: &str) -> Result<(), DateErr> {
+fn read_tree_merged(t_base: Option<String>, t_head: &str, t_other: &str) -> Result<(), DateErr> {
+    let t_base_tree = match t_base.and_then(|t_base| get_tree_in_base(&t_base)) {
+        Some(tree) => tree,
+        None => HashMap::new(),
+    };
+
     //TODO check is there un commit changes?
     let t_head_tree = match get_tree_in_base(t_head) {
         Some(tree) => tree,
@@ -388,7 +393,7 @@ fn read_tree_merged(t_head: &str, t_other: &str) -> Result<(), DateErr> {
         None => return Err(DateErr::TreeNotExists(String::from(t_other))),
     };
 
-    let merge_tress = match diff::merge_tress(&t_head_tree, &t_other_tree) {
+    let merge_tress = match diff::merge_tress(&t_base_tree, &t_head_tree, &t_other_tree) {
         Ok(merged_tree) => merged_tree,
         Err(err) => return Err(err),
     };
@@ -419,11 +424,18 @@ fn read_tree_merged(t_head: &str, t_other: &str) -> Result<(), DateErr> {
 }
 
 pub fn merge(other: &str) {
-    let c_head = match data::get_ref_recursive(data::HEAD)
+    let head = match data::get_ref_recursive(data::HEAD)
         .filter(|refvalue| !refvalue.value.is_empty())
-        .and_then(|refvalue| get_commit(refvalue.value))
-        .and_then(|commit| commit.tree)
+        .map(|refvalue| refvalue.value)
     {
+        Some(head) => head,
+        None => {
+            eprintln!("merge failed, head commit not exists");
+            return;
+        }
+    };
+
+    let c_head = match get_commit(&head).and_then(|commit| commit.tree) {
         Some(c_head) => c_head,
         None => {
             eprintln!("merge failed, commit not exists:{:?}", data::HEAD);
@@ -440,9 +452,11 @@ pub fn merge(other: &str) {
         }
     };
 
+    let merge_base = get_merge_base(&head, &other);
+
     data::update_ref(data::MERGE_HEAD, RefValue::direct(other.to_string()), true);
 
-    if let Err(err) = read_tree_merged(&c_head, &c_other) {
+    if let Err(err) = read_tree_merged(merge_base, &c_head, &c_other) {
         eprintln!("merge failed err:{:?}", err);
     } else {
         data::update_ref(
