@@ -452,7 +452,9 @@ pub fn merge(other: &str) {
         }
     };
 
-    let merge_base = get_merge_base(&head, &other);
+    let merge_base = get_merge_base(&head, &other)
+        .and_then(|base| get_commit(&base))
+        .and_then(|base_commit| base_commit.tree);
 
     data::update_ref(data::MERGE_HEAD, RefValue::direct(other.to_string()), true);
 
