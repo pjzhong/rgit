@@ -287,8 +287,13 @@ pub fn iter_commits_and_parents(oids: Vec<String>) -> Vec<String> {
         }
 
         if let Some(parents) = get_commit(&oid).map(|c| c.parents) {
+            let mut parents = parents.into_iter();
+            if let Some(first_parent) = parents.next() {
+                oids.push_front(first_parent.to_string());
+            }
+
             for parent in parents {
-                oids.push_back(parent);
+                oids.push_back(parent)
             }
         }
 
@@ -450,4 +455,13 @@ pub fn merge(other: &str) {
         );
         println!("Merged in working tree\nPlease commit");
     }
+}
+
+pub fn get_merge_base(oid1: &str, oid2: &str) -> Option<String> {
+    let parents1: HashSet<String> =
+        HashSet::from_iter(iter_commits_and_parents(vec![oid1.to_string()]));
+
+    iter_commits_and_parents(vec![oid2.to_string()])
+        .into_iter()
+        .find(|oid| parents1.contains(oid))
 }

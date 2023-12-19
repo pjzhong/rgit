@@ -62,4 +62,7 @@ pub enum Commands {
     /// Join two or more development histories together
     #[command(name = "merge")]
     Merge { commit: String },
+    /// Find as good common ancestors as possible for a merge
+    #[command(name = "merge-base")]
+    MergeBase { commit1: String, commit2: String },
 }

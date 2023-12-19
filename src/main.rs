@@ -69,6 +69,7 @@ fn main() {
         Commands::Show { oid } => show(oid),
         Commands::Diff { oid } => diff(&oid),
         Commands::Merge { commit } => merge(commit),
+        Commands::MergeBase { commit1, commit2 } => merge_base(commit1, commit2),
     }
 }
 
@@ -240,4 +241,8 @@ fn diff(oid: &str) {
 
 fn merge(commit: String) {
     base::merge(&commit);
+}
+
+fn merge_base(commit1: String, commit2: String) {
+    println!("merge_base: {:?}", base::get_merge_base(&commit1, &commit2));
 }
