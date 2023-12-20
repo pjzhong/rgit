@@ -1,8 +1,8 @@
 use std::collections::LinkedList;
 use std::fs::{create_dir, File};
 use std::io::{Error, Read, Write};
-use std::mem::{swap, self};
-use std::path::{Path, PathBuf};
+use std::mem::{self};
+use std::path::{self, Path, PathBuf};
 use std::{env, fs, vec};
 
 use crypto::digest::Digest;
@@ -215,7 +215,7 @@ impl Ugit {
         Some(self.get_ref_internal(ref_str, true).1).filter(|ref_val| !ref_val.value.is_empty())
     }
 
-    fn iter_refs_internal(&self, prefix: &str) -> Vec<String> {
+    pub fn iter_refs_prefix(&self, prefix: &str) -> Vec<String> {
         let mut refs = vec![String::from(HEAD), String::from(MERGE_HEAD)];
 
         let refs_path = PathBuf::from(&self.git_dir).join("refs");
@@ -225,7 +225,10 @@ impl Ugit {
         while let Some(dir) = dirs.pop_front() {
             let read_dir = match dir.read_dir() {
                 Ok(read_dir) => read_dir,
-                Err(_) => continue,
+                Err(err) => {
+                    println!("err:{:?}", err);
+                    continue;
+                }
             };
 
             for dir in read_dir.filter_map(Result::ok) {
@@ -235,6 +238,7 @@ impl Ugit {
                 };
 
                 if file_type.is_file() {
+                    println!("{:?}", dir.path());
                     if let Some(path) = dir
                         .path()
                         .strip_prefix(&self.git_dir)
@@ -254,7 +258,7 @@ impl Ugit {
     }
 
     pub fn iter_refs(&self) -> Vec<String> {
-        self.iter_refs_internal("")
+        self.iter_refs_prefix("")
     }
 
     pub fn iter_branch_names(&self) -> Vec<String> {
@@ -262,7 +266,7 @@ impl Ugit {
         let binding = PathBuf::from("refs").join("heads").join("");
         let prefix = binding.to_str().unwrap_or_default();
         for ref_name in self
-            .iter_refs_internal(prefix)
+            .iter_refs_prefix(prefix)
             .iter()
             .filter_map(|str| str.strip_prefix(prefix))
         {
@@ -272,8 +276,10 @@ impl Ugit {
         branchs
     }
 
-    pub fn change_git_dir(&mut self, new_dir: String) -> String {
-        mem::replace(&mut self.git_dir,  new_dir)
+    pub fn change_git_dir(&mut self, mut new_dir: String) -> String {
+        new_dir.push_str(path::MAIN_SEPARATOR_STR);
+        new_dir.push_str(".rgit");
+        mem::replace(&mut self.git_dir, new_dir)
     }
 }
 

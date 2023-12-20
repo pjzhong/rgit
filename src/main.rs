@@ -76,6 +76,10 @@ fn main() {
         Commands::Diff { oid } => diff(&oid),
         Commands::Merge { commit } => merge(commit),
         Commands::MergeBase { commit1, commit2 } => merge_base(commit1, commit2),
+        Commands::Fetch { remote } => {
+            let mut ugit = Ugit::default();
+            ugit.fetch(remote);
+        }
     }
 }
 

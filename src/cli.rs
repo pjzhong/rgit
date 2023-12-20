@@ -65,4 +65,7 @@ pub enum Commands {
     /// Find as good common ancestors as possible for a merge
     #[command(name = "merge-base")]
     MergeBase { commit1: String, commit2: String },
+    #[command(name = "fetch")]
+    /// Download objects and refs from another repository
+    Fetch { remote: String },
 }
