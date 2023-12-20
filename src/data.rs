@@ -7,7 +7,7 @@ use std::{env, fs, vec};
 use crypto::digest::Digest;
 use crypto::sha1::Sha1;
 
-pub const GIT_DIR: &str = ".rgit";
+pub const GIT_DIR: &str = "./.rgit";
 pub const HEAD: &str = "HEAD";
 pub const MERGE_HEAD: &str = "MERGE_HEAD";
 pub const REF_PREFIX: &str = "ref: ";

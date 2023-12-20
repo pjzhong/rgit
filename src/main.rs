@@ -77,14 +77,18 @@ fn log(oid: Option<String>) {
     let head = if let Some(oid) = oid {
         base::get_oid(oid)
     } else {
-        data::get_ref_recursive(data::HEAD)
-            .map(|head| head.value)
-            .unwrap_or_default()
+        match data::get_ref_if_not_empty(data::HEAD).map(|head| head.value) {
+            Some(head) => head,
+            None => {
+                eprintln!("No Commits");
+                return;
+            },
+        }
     };
 
     let mut refs: HashMap<String, Vec<String>> = HashMap::new();
     for ref_name in data::iter_refs() {
-        if let Some(oid) = data::get_ref_recursive(&ref_name) {
+        if let Some(oid) = data::get_ref_if_not_empty(&ref_name) {
             let refs = refs.entry(oid.value).or_default();
             refs.push(ref_name);
         }
@@ -165,7 +169,7 @@ fn status() {
         println!("HEAD detached at {oid:10}")
     }
 
-    let tree_id = match data::get_ref_recursive(&oid)
+    let tree_id = match data::get_ref_if_not_empty(&oid)
         .and_then(|r| base::get_commit(r.value))
         .and_then(|c| c.tree)
     {
