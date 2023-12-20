@@ -238,7 +238,6 @@ impl Ugit {
                 };
 
                 if file_type.is_file() {
-                    println!("{:?}", dir.path());
                     if let Some(path) = dir
                         .path()
                         .strip_prefix(&self.git_dir)
