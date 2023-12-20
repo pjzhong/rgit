@@ -1,6 +1,7 @@
 use std::collections::LinkedList;
 use std::fs::{create_dir, File};
 use std::io::{Error, Read, Write};
+use std::mem::{swap, self};
 use std::path::{Path, PathBuf};
 use std::{env, fs, vec};
 
@@ -269,6 +270,10 @@ impl Ugit {
         }
 
         branchs
+    }
+
+    pub fn change_git_dir(&mut self, new_dir: String) -> String {
+        mem::replace(&mut self.git_dir,  new_dir)
     }
 }
 
