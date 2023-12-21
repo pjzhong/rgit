@@ -145,8 +145,11 @@ impl Ugit {
     pub fn update_ref<T: AsRef<str>>(&self, ref_str: T, value: RefValue, deref: bool) {
         let ref_str = ref_str.as_ref();
         let ref_str = self.get_ref_internal(ref_str, deref).0;
+        println!("{ref_str}");
 
         let path = PathBuf::from(&self.git_dir).join(ref_str);
+
+        println!("{:?}", &self.git_dir);
 
         if let Some(parent) = path.parent() {
             if let Err(e) = fs::create_dir_all(parent) {
@@ -253,7 +256,9 @@ impl Ugit {
             }
         }
 
-        refs
+        refs.into_iter()
+            .filter(|ref_name| ref_name.starts_with(prefix))
+            .collect::<Vec<_>>()
     }
 
     pub fn iter_refs(&self) -> Vec<String> {
@@ -275,9 +280,7 @@ impl Ugit {
         branchs
     }
 
-    pub fn change_git_dir(&mut self, mut new_dir: String) -> String {
-        new_dir.push_str(path::MAIN_SEPARATOR_STR);
-        new_dir.push_str(".rgit");
+    pub fn change_git_dir(&mut self, new_dir: String) -> String {
         mem::replace(&mut self.git_dir, new_dir)
     }
 }
