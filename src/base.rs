@@ -491,6 +491,82 @@ impl Ugit {
             }
         }
     }
+
+    pub fn iter_objects_in_commits<T: AsRef<str>>(&self, oids: Vec<String>) -> Vec<String> {
+        let mut visited = HashSet::new();
+
+        let mut objects = vec![];
+        for oid in self.iter_commits_and_parents(oids) {
+            if let Some(tree) = self.get_commit(&oid).and_then(|commit| commit.tree) {
+                if !visited.contains(tree.as_str()) {
+                    let mut tree_objects = self.iter_objects_in_tree(&oid, &mut visited);
+                    objects.append(&mut tree_objects);
+                }
+            }
+        }
+
+        objects
+    }
+
+    fn iter_objects_in_tree(
+        &self,
+        oid: &str,
+        visited: &mut HashSet<String>,
+    ) -> Vec<String> {
+        visited.insert(oid.to_string());
+
+        match self.iter_tree_entires(oid) {
+            Ok(entries) => {
+                let mut oids = vec![];
+                for (data_type, oid, _) in entries {
+                    match data_type {
+                        DataType::Tree => {
+                            let mut tree = self.iter_objects_in_tree(oid.as_str(), visited);
+                            oids.append(&mut tree);
+                        }
+                        _ => {
+                            visited.insert(oid.clone());
+                            oids.push(oid);
+                        }
+                    }
+                }
+
+                oids
+            }
+            Err(err) => {
+                eprintln!("iter tree entries err:{:?}", err);
+                vec![]
+            }
+        }
+    }
+
+    fn iter_tree_entires<T: AsRef<str>>(
+        &self,
+        oid: T,
+    ) -> Result<Vec<(DataType, String, String)>, DateErr> {
+        let oid = oid.as_ref();
+        match self.get_object(oid, DataType::Tree) {
+            Ok(content) => {
+                let mut result = vec![];
+                for line in content.lines() {
+                    let splits = line.splitn(3, ' ').collect::<Vec<_>>();
+
+                    let t = (
+                        splits.first()
+                            .map(|dt| DataType::from(*dt))
+                            .unwrap_or(DataType::None),
+                        splits.get(1).unwrap_or(&"").to_string(),
+                        splits.get(2).unwrap_or(&"").to_string(),
+                    );
+
+                    result.push(t);
+                }
+
+                Ok(result)
+            }
+            Err(err) => Err(err),
+        }
+    }
 }
 
 fn file_name(path: &Path) -> String {

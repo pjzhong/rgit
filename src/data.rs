@@ -31,7 +31,15 @@ impl Ugit {
     pub fn init(&self) {
         let current_dir = env::current_dir().expect("failed to obtain current dir");
         let current_dir: PathBuf = current_dir.join(&self.git_dir);
+        let object: PathBuf = current_dir.join(&self.git_dir).join("objects");
         match create_dir(&current_dir) {
+            Ok(_) => {
+                println!("Initialized empty rgit repository in {:?}", current_dir)
+            }
+            Err(r) => eprintln!("Initi rgit repository err:{:?}", r),
+        }
+
+        match create_dir(object) {
             Ok(_) => {
                 println!("Initialized empty rgit repository in {:?}", current_dir)
             }
@@ -45,7 +53,7 @@ impl Ugit {
         let hex = haser.result_str();
 
         let current_dir = env::current_dir().expect("failed to obtain current dir");
-        let current_dir: PathBuf = current_dir.join(&self.git_dir).join(&hex);
+        let current_dir: PathBuf = current_dir.join(&self.git_dir).join("objects").join(&hex);
         match File::create(&current_dir) {
             Ok(mut f) => {
                 let mut datas: Vec<u8> = vec![];
@@ -88,7 +96,7 @@ impl Ugit {
 
     pub fn get_object(&self, oid: &str, expected: DataType) -> Result<String, DateErr> {
         let current_dir = env::current_dir().expect("failed to obtain current dir");
-        let current_dir: PathBuf = current_dir.join(&self.git_dir).join(oid);
+        let current_dir: PathBuf = current_dir.join(&self.git_dir).join("objects").join(oid);
 
         let obj = match File::open(current_dir) {
             Ok(mut f) => {
@@ -280,6 +288,42 @@ impl Ugit {
     pub fn change_git_dir(&mut self, new_dir: String) -> String {
         mem::replace(&mut self.git_dir, new_dir)
     }
+
+    pub fn objects_exists(&self, oid: &str) -> bool {
+        PathBuf::from(&self.git_dir)
+            .join("objects")
+            .join(oid)
+            .is_file()
+    }
+
+    pub fn fetch_object_if_missing(&self, oid: &str, remote_git_dir: &str) -> Result<(), Error> {
+        if self.objects_exists(oid) {
+            return Ok(());
+        }
+
+        match fs::read_to_string(
+            PathBuf::from(remote_git_dir)
+                .join(".rgit")
+                .join("objects")
+                .join(oid),
+        ) {
+            Ok(str) => {
+                match File::options()
+                    .create(true)
+                    .write(true)
+                    .truncate(true)
+                    .open(PathBuf::from(&self.git_dir).join("objects").join(oid))
+                {
+                    Ok(mut f) => match f.write_all(str.as_bytes()) {
+                        Ok(_) => Ok(()),
+                        Err(err) => Err(err),
+                    },
+                    Err(err) => Err(err),
+                }
+            }
+            Err(err) => Err(err),
+        }
+    }
 }
 
 #[derive(Debug)]
@@ -331,6 +375,17 @@ impl From<&DataType> for String {
             DataType::Blob => String::from("Blob"),
             DataType::Tree => String::from("Tree"),
             DataType::Commit => String::from("Commit"),
+        }
+    }
+}
+
+impl From<&str> for DataType {
+    fn from(value: &str) -> Self {
+        match value {
+            "Blob" => DataType::Blob,
+            "Tree" => DataType::Tree,
+            "Commit" => DataType::Commit,
+            _ => DataType::None,
         }
     }
 }
