@@ -9,12 +9,14 @@ impl Ugit {
     pub fn fetch(&mut self, remote_path: String) {
         println!("Will fetch the following refs:");
         for (ref_name, val) in self.get_remote_refs(remote_path, REMOTE_REF_BASE) {
-            println!("- {ref_name}");
-            self.update_ref(
-                format!("{LOCAL_REFS_BASE}/{ref_name}"),
-                RefValue::direct(val),
-                true,
-            );
+            if let Some(ref_name) = ref_name.strip_prefix(REMOTE_REF_BASE) {
+                println!("- {ref_name}");
+                self.update_ref(
+                    format!("{LOCAL_REFS_BASE}{ref_name}"),
+                    RefValue::direct(val),
+                    true,
+                );
+            }
         }
     }
 

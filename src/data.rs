@@ -2,7 +2,7 @@ use std::collections::LinkedList;
 use std::fs::{create_dir, File};
 use std::io::{Error, Read, Write};
 use std::mem::{self};
-use std::path::{self, Path, PathBuf};
+use std::path::{Path, PathBuf};
 use std::{env, fs, vec};
 
 use crypto::digest::Digest;
@@ -145,11 +145,8 @@ impl Ugit {
     pub fn update_ref<T: AsRef<str>>(&self, ref_str: T, value: RefValue, deref: bool) {
         let ref_str = ref_str.as_ref();
         let ref_str = self.get_ref_internal(ref_str, deref).0;
-        println!("{ref_str}");
 
         let path = PathBuf::from(&self.git_dir).join(ref_str);
-
-        println!("{:?}", &self.git_dir);
 
         if let Some(parent) = path.parent() {
             if let Err(e) = fs::create_dir_all(parent) {
