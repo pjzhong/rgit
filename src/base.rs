@@ -479,7 +479,7 @@ impl Ugit {
                     Ok(hex) => entires.push((DataType::Blob, hex, file_name(&path))),
                     Err(e) => {
                         eprintln!(
-                            "write_tree_hash_object error1111111111, file:{:?} err:{:?}",
+                            "write_tree_hash_object error, file:{:?} err:{:?}",
                             path, e
                         )
                     }
