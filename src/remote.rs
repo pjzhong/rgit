@@ -7,6 +7,12 @@ const LOCAL_REFS_BASE: &str = "refs/remote";
 
 impl Ugit {
     pub fn push(&mut self, remote_path: &str, ref_name: &str) {
+        let known_remote_refs = self
+            .get_remote_refs(remote_path, "")
+            .into_iter()
+            .filter(|refvalue| self.objects_exists(&refvalue.1))
+            .map(|refvalue| refvalue.1)
+            .collect::<Vec<_>>();
         let ref_val = match self.get_ref_if_not_empty(ref_name) {
             Some(ref_val) => ref_val.value,
             None => {
@@ -15,9 +21,12 @@ impl Ugit {
             }
         };
 
-        let objects_to_push = self.iter_objects_in_commits(vec![ref_val.clone()]);
+        let remote_objects = self.iter_objects_in_commits(known_remote_refs);
+        let local_objects = self.iter_objects_in_commits(vec![ref_val.clone()]);
+        let objects_to_push = local_objects.difference(&remote_objects);
 
         for oid in objects_to_push {
+            println!("{:?}", oid);
             if let Err(err) = self.push_object(&oid, remote_path) {
                 eprintln!("push object to {:?} err:{:?}", remote_path, err);
             }
