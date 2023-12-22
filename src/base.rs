@@ -226,6 +226,14 @@ impl Ugit {
     }
 
     pub fn iter_commits_and_parents(&self, oids: Vec<String>) -> Vec<String> {
+        self.iter_commits_and_parents_with_fectch(oids, &|_| {})
+    }
+
+    pub fn iter_commits_and_parents_with_fectch(
+        &self,
+        oids: Vec<String>,
+        fetch: &impl Fn(&str),
+    ) -> Vec<String> {
         let mut oids = oids.into_iter().collect::<LinkedList<_>>();
         let mut visited = HashSet::new();
 
@@ -234,6 +242,8 @@ impl Ugit {
             if visited.contains(&oid) {
                 continue;
             }
+
+            fetch(&oid);
 
             if let Some(parents) = self.get_commit(&oid).map(|c| c.parents) {
                 let mut parents = parents.into_iter();
@@ -492,14 +502,24 @@ impl Ugit {
         }
     }
 
-    pub fn iter_objects_in_commits<T: AsRef<str>>(&self, oids: Vec<String>) -> Vec<String> {
+    pub fn iter_objects_in_commits(&self, oids: Vec<String>) -> Vec<String> {
+        self.iter_objects_in_commits_fetch(oids, &|_| {})
+    }
+
+    pub fn iter_objects_in_commits_fetch(
+        &self,
+        oids: Vec<String>,
+        fetch: &impl Fn(&str),
+    ) -> Vec<String> {
         let mut visited = HashSet::new();
 
         let mut objects = vec![];
-        for oid in self.iter_commits_and_parents(oids) {
+        for oid in self.iter_commits_and_parents_with_fectch(oids, fetch) {
+            fetch(&oid);
             if let Some(tree) = self.get_commit(&oid).and_then(|commit| commit.tree) {
                 if !visited.contains(tree.as_str()) {
-                    let mut tree_objects = self.iter_objects_in_tree(&oid, &mut visited);
+                    let mut tree_objects =
+                        self.iter_objects_in_tree_with_fetch(&tree, &mut visited, fetch);
                     objects.append(&mut tree_objects);
                 }
             }
@@ -508,20 +528,32 @@ impl Ugit {
         objects
     }
 
-    fn iter_objects_in_tree(
+    fn iter_objects_in_tree(&self, oid: &str, visited: &mut HashSet<String>) -> Vec<String> {
+        self.iter_objects_in_tree_with_fetch(oid, visited, &|_| {})
+    }
+
+    fn iter_objects_in_tree_with_fetch(
         &self,
         oid: &str,
         visited: &mut HashSet<String>,
+        fetch: &impl Fn(&str),
     ) -> Vec<String> {
         visited.insert(oid.to_string());
+
+        fetch(oid);
 
         match self.iter_tree_entires(oid) {
             Ok(entries) => {
                 let mut oids = vec![];
                 for (data_type, oid, _) in entries {
+                    if visited.contains(&oid) {
+                        continue;
+                    }
+
                     match data_type {
                         DataType::Tree => {
-                            let mut tree = self.iter_objects_in_tree(oid.as_str(), visited);
+                            let mut tree =
+                                self.iter_objects_in_tree_with_fetch(oid.as_str(), visited, fetch);
                             oids.append(&mut tree);
                         }
                         _ => {
@@ -534,7 +566,7 @@ impl Ugit {
                 oids
             }
             Err(err) => {
-                eprintln!("iter tree entries err:{:?}", err);
+                eprintln!("iter tree entries err:{:?}, oid:{:?}", err, oid);
                 vec![]
             }
         }
@@ -552,7 +584,8 @@ impl Ugit {
                     let splits = line.splitn(3, ' ').collect::<Vec<_>>();
 
                     let t = (
-                        splits.first()
+                        splits
+                            .first()
                             .map(|dt| DataType::from(*dt))
                             .unwrap_or(DataType::None),
                         splits.get(1).unwrap_or(&"").to_string(),

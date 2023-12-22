@@ -31,7 +31,7 @@ impl Ugit {
     pub fn init(&self) {
         let current_dir = env::current_dir().expect("failed to obtain current dir");
         let current_dir: PathBuf = current_dir.join(&self.git_dir);
-        let object: PathBuf = current_dir.join(&self.git_dir).join("objects");
+        let objects_dir: PathBuf = current_dir.join("objects");
         match create_dir(&current_dir) {
             Ok(_) => {
                 println!("Initialized empty rgit repository in {:?}", current_dir)
@@ -39,11 +39,11 @@ impl Ugit {
             Err(r) => eprintln!("Initi rgit repository err:{:?}", r),
         }
 
-        match create_dir(object) {
-            Ok(_) => {
-                println!("Initialized empty rgit repository in {:?}", current_dir)
-            }
-            Err(r) => eprintln!("Initi rgit repository err:{:?}", r),
+        if let Err(err) = create_dir(&objects_dir) {
+            eprintln!(
+                "Initi rgit object repository err:{:?}, path:{:?}",
+                err, objects_dir
+            );
         }
     }
 
@@ -301,6 +301,7 @@ impl Ugit {
             return Ok(());
         }
 
+        println!("fetching oid:{:?}", oid);
         match fs::read_to_string(
             PathBuf::from(remote_git_dir)
                 .join(".rgit")

@@ -17,7 +17,7 @@ fn main() {
     let cli = Cli::parse();
 
     match cli.command {
-        Commands::Init => Ugit::default().init(),
+        Commands::Init => Ugit::default().init_repo(),
         Commands::HashObject { file } => match File::open(&file) {
             Ok(mut f) => {
                 let ugit = Ugit::default();

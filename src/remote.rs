@@ -10,12 +10,15 @@ impl Ugit {
         println!("Will fetch the following refs:");
         let refs = self.get_remote_refs(&remote_path, REMOTE_REF_BASE);
 
-        let oids = refs.iter().map(|refs| &refs.1).collect::<Vec<_>>();
-        for (_, oid) in self.iter_objects_in_commits(&oids) {
-            if let Err(err) = self.fetch_object_if_missing(oid, &remote_path) {
-                eprintln!("fetch remote object error, path:{:?}, err:{:?}", remote_path, err);
+        let oids = refs.iter().map(|refs| refs.1.clone()).collect::<Vec<_>>();
+        self.iter_objects_in_commits_fetch(oids, &|str| {
+            if let Err(err) = self.fetch_object_if_missing(str, &remote_path) {
+                eprintln!(
+                    "fetch remote object err, remote_path:{:?}, oid:{:?}, err:{:?}",
+                    remote_path, str, err
+                );
             }
-        }
+        });
 
         for (ref_name, val) in refs {
             if let Some(ref_name) = ref_name.strip_prefix(REMOTE_REF_BASE) {
