@@ -478,10 +478,7 @@ impl Ugit {
                 match self.hash_object(&path) {
                     Ok(hex) => entires.push((DataType::Blob, hex, file_name(&path))),
                     Err(e) => {
-                        eprintln!(
-                            "write_tree_hash_object error, file:{:?} err:{:?}",
-                            path, e
-                        )
+                        eprintln!("write_tree_hash_object error, file:{:?} err:{:?}", path, e)
                     }
                 }
             } else if let Some(hex) = self.write_tree(&path) {
@@ -505,11 +502,15 @@ impl Ugit {
         }
     }
 
-    pub fn iter_objects_in_commits(&self, oids: Vec<String>) {
+    pub fn iter_objects_in_commits(&self, oids: Vec<String>) -> HashSet<String> {
         self.iter_objects_in_commits_fetch(oids, &|_| {})
     }
 
-    pub fn iter_objects_in_commits_fetch(&self, oids: Vec<String>, fetch: &impl Fn(&str)) {
+    pub fn iter_objects_in_commits_fetch(
+        &self,
+        oids: Vec<String>,
+        fetch: &impl Fn(&str),
+    ) -> HashSet<String> {
         let mut visited = HashSet::new();
 
         for oid in self.iter_commits_and_parents_with_fectch(oids, fetch) {
@@ -519,11 +520,11 @@ impl Ugit {
                     self.iter_objects_in_tree_with_fetch(&tree, &mut visited, fetch);
                 }
             }
-        }
-    }
 
-    fn iter_objects_in_tree(&self, oid: &str, visited: &mut HashSet<String>) {
-        self.iter_objects_in_tree_with_fetch(oid, visited, &|_| {})
+            visited.insert(oid);
+        }
+
+        visited
     }
 
     fn iter_objects_in_tree_with_fetch(

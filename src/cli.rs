@@ -68,4 +68,6 @@ pub enum Commands {
     #[command(name = "fetch")]
     /// Download objects and refs from another repository
     Fetch { remote: String },
+    /// Update remote refs along with associated objects
+    Push { remote: String, branch: String },
 }

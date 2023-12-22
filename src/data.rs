@@ -325,6 +325,31 @@ impl Ugit {
             Err(err) => Err(err),
         }
     }
+
+    pub fn push_object(&self, oid: &str, remote_git_dir: &str) -> Result<(), Error> {
+        let local = PathBuf::from(&self.git_dir).join("objects").join(oid);
+        let remote = PathBuf::from(remote_git_dir)
+            .join(".rgit")
+            .join("objects")
+            .join(oid);
+        match fs::read_to_string(local) {
+            Ok(str) => {
+                match File::options()
+                    .create(true)
+                    .write(true)
+                    .truncate(true)
+                    .open(remote)
+                {
+                    Ok(mut f) => match f.write_all(str.as_bytes()) {
+                        Ok(_) => Ok(()),
+                        Err(err) => Err(err),
+                    },
+                    Err(err) => Err(err),
+                }
+            }
+            Err(err) => Err(err),
+        }
+    }
 }
 
 #[derive(Debug)]

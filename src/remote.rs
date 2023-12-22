@@ -6,6 +6,29 @@ const REMOTE_REF_BASE: &str = "refs/heads";
 const LOCAL_REFS_BASE: &str = "refs/remote";
 
 impl Ugit {
+    pub fn push(&mut self, remote_path: &str, ref_name: &str) {
+        let ref_val = match self.get_ref_if_not_empty(ref_name) {
+            Some(ref_val) => ref_val.value,
+            None => {
+                eprintln!("ref not exists, ref:{:?}", ref_name);
+                return;
+            }
+        };
+
+        let objects_to_push = self.iter_objects_in_commits(vec![ref_val.clone()]);
+
+        for oid in objects_to_push {
+            if let Err(err) = self.push_object(&oid, remote_path) {
+                eprintln!("push object to {:?} err:{:?}", remote_path, err);
+            }
+        }
+
+        let old_dir =
+            self.change_git_dir(format!("{}{}.rgit", remote_path, path::MAIN_SEPARATOR_STR));
+        self.update_ref(ref_name, RefValue::direct(ref_val.to_string()), true);
+        self.change_git_dir(old_dir);
+    }
+
     pub fn fetch(&mut self, remote_path: String) {
         println!("Will fetch the following refs:");
         let refs = self.get_remote_refs(&remote_path, REMOTE_REF_BASE);
@@ -34,7 +57,7 @@ impl Ugit {
 
     fn get_remote_refs(&mut self, remote_path: &str, prefix: &str) -> Vec<(String, String)> {
         let old_dir =
-            self.change_git_dir(format!("{}{}.rgit", remote_path, path::MAIN_SEPARATOR_STR,));
+            self.change_git_dir(format!("{}{}.rgit", remote_path, path::MAIN_SEPARATOR_STR));
         let mut vec = vec![];
         for ref_name in self.iter_refs_prefix(prefix) {
             if let Some(ref_val) = self.get_ref_if_not_empty(&ref_name) {

@@ -2,7 +2,7 @@ use std::{
     collections::{HashMap, HashSet},
     fs::File,
     io::Read,
-    path::PathBuf,
+    path::{self, PathBuf},
 };
 
 use clap::Parser;
@@ -79,6 +79,18 @@ fn main() {
         Commands::Fetch { remote } => {
             let mut ugit = Ugit::default();
             ugit.fetch(remote);
+        }
+        Commands::Push { remote, branch } => {
+            let mut ugit = Ugit::default();
+            ugit.push(
+                &remote,
+                &format!(
+                    "refs{}heads{}{}",
+                    path::MAIN_SEPARATOR_STR,
+                    path::MAIN_SEPARATOR_STR,
+                    branch
+                ),
+            );
         }
     }
 }
