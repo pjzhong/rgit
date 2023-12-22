@@ -589,6 +589,11 @@ impl Ugit {
             Err(err) => Err(err),
         }
     }
+
+    pub fn is_ancestor_of(&self, commit: &str, maybe_ancesotr: &str) -> bool {
+        self.iter_commits_and_parents(vec![commit.to_string()])
+            .contains(&maybe_ancesotr.to_string())
+    }
 }
 
 fn file_name(path: &Path) -> String {

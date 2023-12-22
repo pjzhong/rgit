@@ -1,4 +1,4 @@
-use std::path;
+use std::{collections::HashMap, path};
 
 use crate::data::{RefValue, Ugit};
 
@@ -10,9 +10,7 @@ impl Ugit {
         let known_remote_refs = self
             .get_remote_refs(remote_path, "")
             .into_iter()
-            .filter(|refvalue| self.objects_exists(&refvalue.1))
-            .map(|refvalue| refvalue.1)
-            .collect::<Vec<_>>();
+            .collect::<HashMap<_, _>>();
         let ref_val = match self.get_ref_if_not_empty(ref_name) {
             Some(ref_val) => ref_val.value,
             None => {
@@ -21,13 +19,25 @@ impl Ugit {
             }
         };
 
-        let remote_objects = self.iter_objects_in_commits(known_remote_refs);
+        if let Some(remote_ref) = known_remote_refs.get(ref_name) {
+            if !self.is_ancestor_of(&ref_val, remote_ref) {
+                eprintln!("fetch and merge, before push");
+                return;
+            }
+        }
+
+        let remote_objects = self.iter_objects_in_commits(
+            known_remote_refs
+                .values()
+                .filter(|val| self.objects_exists(val))
+                .cloned()
+                .collect::<Vec<_>>(),
+        );
         let local_objects = self.iter_objects_in_commits(vec![ref_val.clone()]);
         let objects_to_push = local_objects.difference(&remote_objects);
 
         for oid in objects_to_push {
-            println!("{:?}", oid);
-            if let Err(err) = self.push_object(&oid, remote_path) {
+            if let Err(err) = self.push_object(oid, remote_path) {
                 eprintln!("push object to {:?} err:{:?}", remote_path, err);
             }
         }
