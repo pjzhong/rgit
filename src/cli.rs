@@ -70,4 +70,7 @@ pub enum Commands {
     Fetch { remote: String },
     /// Update remote refs along with associated objects
     Push { remote: String, branch: String },
+    /// Add file contents to the index
+    #[command(name = "add")]
+    Add { files: Vec<String> },
 }

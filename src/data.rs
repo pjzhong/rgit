@@ -1,4 +1,4 @@
-use std::collections::LinkedList;
+use std::collections::{HashMap, LinkedList};
 use std::fs::{create_dir, File};
 use std::io::{Error, Read, Write};
 use std::mem::{self};
@@ -28,6 +28,29 @@ impl Default for Ugit {
 }
 
 impl Ugit {
+    pub fn get_index(&self) -> Result<HashMap<String, String>, Error> {
+        let index_path = PathBuf::from(&self.git_dir).join("index");
+        if !index_path.is_file() {
+            return Ok(HashMap::new());
+        }
+        let string = fs::read_to_string(PathBuf::from(&self.git_dir).join("index"))?;
+
+        let p: HashMap<String, String> = serde_json::from_str(&string)?;
+
+        Ok(p)
+    }
+
+    pub fn write_index(&self, indexs: &HashMap<String, String>) -> Result<(), Error> {
+        let json = serde_json::to_string(indexs)?;
+
+        fs::write(PathBuf::from(&self.git_dir).join("index"), json)?;
+        Ok(())
+    }
+
+    pub fn git_dir(&self) -> &str {
+        &self.git_dir
+    }
+
     pub fn init(&self) {
         let current_dir = env::current_dir().expect("failed to obtain current dir");
         let current_dir: PathBuf = current_dir.join(&self.git_dir);

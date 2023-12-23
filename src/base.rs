@@ -1,5 +1,6 @@
 use std::{
     collections::{HashMap, HashSet, LinkedList},
+    env,
     fs::{self, File},
     io::Write,
     path::{Path, PathBuf},
@@ -593,6 +594,53 @@ impl Ugit {
     pub fn is_ancestor_of(&self, commit: &str, maybe_ancesotr: &str) -> bool {
         self.iter_commits_and_parents(vec![commit.to_string()])
             .contains(&maybe_ancesotr.to_string())
+    }
+
+    pub fn add(&self, filenames: &[String]) {
+        let cur_dir = match env::current_dir() {
+            Ok(cur_dir) => cur_dir,
+            Err(err) => {
+                eprintln!("add file, get cur_dir error:{:?}", err);
+                return;
+            }
+        };
+
+        let mut map = match self.get_index() {
+            Ok(map) => map,
+            Err(err) => {
+                eprintln!("add file get_index error:{:?}", err);
+                return;
+            }
+        };
+
+        for filename in filenames {
+            let filename = PathBuf::from(filename);
+            let filename = if filename.is_absolute() {
+                match filename.strip_prefix(&cur_dir) {
+                    Ok(filename) => filename.to_path_buf(),
+                    Err(err) => {
+                        eprintln!("get relative path error:{:?}", err);
+                        continue;
+                    }
+                }
+            } else {
+                filename
+            };
+
+            match self.hash_object(&filename) {
+                Ok(oid) => {
+                    let filename = filename.to_string_lossy();
+                    map.insert(filename.to_string(), oid);
+                }
+                Err(data_type) => {
+                    eprintln!("add file:{:?} error:{:?}", filename, data_type);
+                }
+            }
+        }
+
+        if let Err(err) = self.write_index(&map) {
+            eprintln!("add file, update index error:{:?}", err);
+        }
     }
 }
 

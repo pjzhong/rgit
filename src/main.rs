@@ -92,6 +92,10 @@ fn main() {
                 ),
             );
         }
+        Commands::Add { files } => {
+            let ugit = Ugit::default();
+            ugit.add(&files);
+        }
     }
 }
 
