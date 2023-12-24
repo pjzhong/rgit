@@ -2,7 +2,7 @@ use std::{
     collections::{HashMap, HashSet},
     fs::File,
     io::Read,
-    path::{self, PathBuf},
+    path::{self},
 };
 
 use clap::Parser;
@@ -73,7 +73,7 @@ fn main() {
         Commands::Status => status(),
         Commands::Reset { oid } => reset(oid),
         Commands::Show { oid } => show(oid),
-        Commands::Diff { oid } => diff(&oid),
+        Commands::Diff { oid, cached } => diff(oid, cached),
         Commands::Merge { commit } => merge(commit),
         Commands::MergeBase { commit1, commit2 } => merge_base(commit1, commit2),
         Commands::Fetch { remote } => {
@@ -213,7 +213,7 @@ fn status() {
     }
 
     let index_tree = ugit.get_index_tree();
-    if let Some(tree_map) = ugit.get_tree_in_current_dir(&tree_id) {
+    if let Some(tree_map) = ugit.get_tree_in_base(&tree_id) {
         let actions = diff::iter_changed_files(&tree_map, &index_tree);
         println!("\nChanges to be committed:");
         for (path, action) in actions {
@@ -261,24 +261,40 @@ fn print_commit(oid: &str, commit: &Commit, refs: &[String]) {
     );
 }
 
-fn diff(oid: &str) {
+fn diff(oid: Option<String>, cached: bool) {
     let ugit = Ugit::default();
-    let commit = match ugit.get_commit(oid) {
-        Some(commit) => commit,
-        None => return,
+    let oid = if let Some(oid) = oid {
+        Some(ugit.get_oid(oid))
+    } else {
+        oid
     };
 
-    print_commit(oid, &commit, &[]);
+    let mut tree_from = None;
+    if let Some(oid) = oid.as_ref() {
+        tree_from = ugit.get_tree_in_base(oid);
+    }
 
-    if let Some(tree) = commit.tree {
-        let path = PathBuf::from(".");
-
-        if let (Some(t_from), Some(t_to)) =
-            (ugit.get_tree(&tree, &path), Some(ugit.get_working_tree()))
-        {
-            let output = diff::diff_tree(&t_from, &t_to);
-            println!("{output}");
+    let tree_to = if cached {
+        let tree_to = Some(ugit.get_index_tree());
+        if oid.is_none() {
+            tree_from = ugit
+                .get_commit(ugit.get_oid(data::HEAD))
+                .and_then(|commit| commit.tree)
+                .and_then(|tree| ugit.get_tree_in_base(&tree));
         }
+
+        tree_to
+    } else {
+        let tree_to = Some(ugit.get_working_tree());
+        if oid.is_none() {
+            tree_from = Some(ugit.get_index_tree());
+        }
+        tree_to
+    };
+
+    if let (Some(t_from), Some(t_to)) = (tree_from, tree_to) {
+        let output = diff::diff_tree(&t_from, &t_to);
+        println!("{output}");
     }
 }
 

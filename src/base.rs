@@ -49,7 +49,7 @@ impl Ugit {
         name.to_string()
     }
 
-    pub fn get_tree_in_current_dir(&self, oid: &str) -> Option<HashMap<PathBuf, String>> {
+    pub fn get_tree_in_base(&self, oid: &str) -> Option<HashMap<PathBuf, String>> {
         let current_dir = PathBuf::from(".");
 
         match self.get_tree(oid, &current_dir) {
@@ -98,11 +98,6 @@ impl Ugit {
         }
 
         Some(res)
-    }
-
-    pub fn get_tree_in_base(&self, oid: &str) -> Option<HashMap<PathBuf, String>> {
-        let path = PathBuf::from(".");
-        self.get_tree(oid, &path)
     }
 
     pub fn read_tree(&self, oid: &str, update_working: bool) {
