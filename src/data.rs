@@ -383,6 +383,12 @@ pub enum DateErr {
     Err(String),
 }
 
+impl From<Error> for DateErr {
+    fn from(value: Error) -> Self {
+        DateErr::Io(value)
+    }
+}
+
 pub struct RefValue {
     pub symbolic: bool,
     pub value: String,
@@ -401,12 +407,6 @@ impl RefValue {
             symbolic: true,
             value: value.into(),
         }
-    }
-}
-
-impl From<Error> for DateErr {
-    fn from(value: Error) -> Self {
-        DateErr::Io(value)
     }
 }
 

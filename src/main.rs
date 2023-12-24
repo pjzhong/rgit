@@ -39,9 +39,9 @@ fn main() {
                 Err(e) => eprintln!("get object:{:?}, err:{:?}", oid, e),
             }
         }
-        Commands::WriteTree { dir } => {
+        Commands::WriteTree { dir: _ } => {
             let ugit = Ugit::default();
-            ugit.write_tree(&PathBuf::from(dir)).unwrap();
+            println!("{:?}", ugit.write_tree());
         }
         Commands::ReadTree { oid } => {
             let ugit = Ugit::default();

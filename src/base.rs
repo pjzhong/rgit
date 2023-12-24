@@ -2,7 +2,7 @@ use std::{
     collections::{HashMap, HashSet, LinkedList},
     env,
     fs::{self, File},
-    io::Write,
+    io::{Error, Write},
     path::{Path, PathBuf},
 };
 
@@ -12,6 +12,12 @@ pub struct Commit {
     pub tree: Option<String>,
     pub parents: Vec<String>,
     pub message: Option<String>,
+}
+
+#[derive(Debug)]
+pub enum Node {
+    Dir(HashMap<String, Node>),
+    File(String),
 }
 
 impl Ugit {
@@ -112,14 +118,7 @@ impl Ugit {
     }
 
     pub fn commit(&self, message: &str) -> Result<String, DateErr> {
-        let oid = match self.write_tree(&PathBuf::from("./")) {
-            Some(oid) => oid,
-            None => {
-                return Err(DateErr::Err(
-                    "unknow reason, can't not write current director".to_string(),
-                ))
-            }
-        };
+        let oid = self.write_tree()?;
 
         let mut commit = format!("tree {oid}\n");
         if let Some(head) = self
@@ -461,30 +460,66 @@ impl Ugit {
             .find(|oid| parents1.contains(oid))
     }
 
-    pub fn write_tree(&self, path: &PathBuf) -> Option<String> {
+    fn build_index_tree_recursive(&self) -> Result<HashMap<String, Node>, Error> {
+        let mut index_as_tree = Node::Dir(HashMap::new());
+        let index = self.get_index()?;
+
+        for (path, oid) in index {
+            let path = PathBuf::from(path);
+            let file_name = match path.file_name() {
+                Some(file_name) => file_name.to_string_lossy(),
+                None => {
+                    eprintln!("write_tree error, required a filename:{:?}", path);
+                    continue;
+                }
+            };
+
+            let mut current_path = &mut index_as_tree;
+
+            if let Some(components) = path.parent().map(|parent| parent.components()) {
+                for component in components {
+                    match component {
+                        std::path::Component::Normal(ostr) => {
+                            let ostr = ostr.to_string_lossy().to_string();
+                            if let Node::Dir(map) = current_path {
+                                current_path =
+                                    map.entry(ostr).or_insert_with(|| Node::Dir(HashMap::new()));
+                            } else {
+                                eprintln!("required dir component:{:?}", ostr)
+                            }
+                        }
+                        _ => {
+                            eprintln!("unknow handle component:{:?}", component)
+                        }
+                    }
+                }
+            }
+
+            if let Node::Dir(map) = current_path {
+                map.insert(file_name.to_string(), Node::File(oid));
+            }
+        }
+
+        match index_as_tree {
+            Node::Dir(map) => Ok(map),
+            _ => unreachable!(),
+        }
+    }
+
+    fn write_tree_recursive(&self, tree_dict: &HashMap<String, Node>) -> Result<String, DateErr> {
         //（类型，OID,名字）
         let mut entires: Vec<(DataType, String, String)> = vec![];
 
-        let read_dir = match path.read_dir() {
-            Ok(read_dir) => read_dir,
-            Err(_) => return None,
-        };
-        for path in read_dir.filter_map(Result::ok) {
-            let path = path.path();
-            if is_ignored(&path) {
-                continue;
-            }
-
-            if path.is_file() {
-                match self.hash_object(&path) {
-                    Ok(hex) => entires.push((DataType::Blob, hex, file_name(&path))),
-                    Err(e) => {
-                        eprintln!("write_tree_hash_object error, file:{:?} err:{:?}", path, e)
-                    }
+        for (name, node) in tree_dict {
+            let (oid, data_type) = match node {
+                Node::Dir(map) => {
+                    let oid = self.write_tree_recursive(map)?;
+                    (oid, DataType::Tree)
                 }
-            } else if let Some(hex) = self.write_tree(&path) {
-                entires.push((DataType::Tree, hex, file_name(&path)))
-            }
+                Node::File(oid) => (oid.to_string(), DataType::Blob),
+            };
+
+            entires.push((data_type, oid, name.to_string()));
         }
 
         let mut bytes: Vec<u8> = vec![];
@@ -494,13 +529,15 @@ impl Ugit {
             }
         }
 
-        match self.hash(&bytes, DataType::Tree) {
-            Ok(hex) => Some(hex),
-            Err(err) => {
-                eprintln!("hash dir error, dir:{:?} err:{:?}", path, err);
-                None
-            }
-        }
+        self.hash(&bytes, DataType::Tree)
+    }
+
+    pub fn write_tree(&self) -> Result<String, DateErr> {
+        let tree_dict = match self.build_index_tree_recursive() {
+            Ok(tree_dict) => tree_dict,
+            Err(err) => return Err(DateErr::Io(err)),
+        };
+        self.write_tree_recursive(&tree_dict)
     }
 
     pub fn iter_objects_in_commits(&self, oids: Vec<String>) -> HashSet<String> {
@@ -632,19 +669,18 @@ impl Ugit {
             }
         };
 
-        let filename = PathBuf::from(filename);
-        let filename = if filename.is_absolute() {
-            match filename.strip_prefix(&cur_dir) {
+        let filename = match PathBuf::from(filename).canonicalize() {
+            Ok(path) => match path.strip_prefix(cur_dir) {
                 Ok(filename) => filename.to_path_buf(),
                 Err(err) => {
                     eprintln!("get relative path error:{:?}", err);
                     return;
                 }
+            },
+            Err(err) => {
+                eprintln!("add_file, canonicalize error:{:?}", err);
+                return;
             }
-        } else if let Ok(path) = filename.strip_prefix("./") {
-            path.to_path_buf()
-        } else {
-            filename
         };
 
         match self.hash_object(&filename) {
@@ -682,14 +718,6 @@ impl Ugit {
     }
 }
 
-fn file_name(path: &Path) -> String {
-    let file_name = match path.file_name() {
-        Some(os_str) => os_str.to_string_lossy().to_string(),
-        None => String::new(),
-    };
-    file_name
-}
-
 fn is_ignored(path: &Path) -> bool {
     //TODO ignore
     for component in path.iter() {
@@ -703,7 +731,6 @@ fn is_ignored(path: &Path) -> bool {
 
 #[test]
 fn test() {
-    let path1 = PathBuf::from("src/base.rs");
-    let path2 = PathBuf::from("./src/base.rs");
-    println!("{:?}", path1 == path2);
+    let ugit = Ugit::default();
+    ugit.write_tree();
 }
