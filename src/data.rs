@@ -28,6 +28,20 @@ impl Default for Ugit {
 }
 
 impl Ugit {
+    pub fn get_index_tree(&self) -> HashMap<PathBuf, String> {
+        let index = match self.get_index() {
+            Ok(index) => index,
+            Err(_) => return HashMap::new(),
+        };
+
+        let mut index_tree = HashMap::new();
+        for (path, oid) in index {
+            index_tree.insert(PathBuf::from(path), oid);
+        }
+
+        index_tree
+    }
+
     pub fn get_index(&self) -> Result<HashMap<String, String>, Error> {
         let index_path = PathBuf::from(&self.git_dir).join("index");
         if !index_path.is_file() {

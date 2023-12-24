@@ -49,6 +49,26 @@ impl Ugit {
         name.to_string()
     }
 
+    pub fn get_tree_in_current_dir(&self, oid: &str) -> Option<HashMap<PathBuf, String>> {
+        let current_dir = PathBuf::from(".");
+
+        match self.get_tree(oid, &current_dir) {
+            Some(res) => {
+                let mut result = HashMap::new();
+                for (path, value) in res {
+                    let path = match path.strip_prefix(&current_dir) {
+                        Ok(path) => path.to_path_buf(),
+                        Err(_) => path,
+                    };
+
+                    result.insert(path, value);
+                }
+                Some(result)
+            }
+            None => None,
+        }
+    }
+
     /// 递归式读取整个仓库
     pub fn get_tree(&self, oid: &str, base_path: &Path) -> Option<HashMap<PathBuf, String>> {
         let root = match self.get_object(oid, DataType::Tree) {
@@ -297,6 +317,7 @@ impl Ugit {
     }
 
     pub fn get_working_tree(&self) -> HashMap<PathBuf, String> {
+        let base = PathBuf::from(".");
         let read_dir = match PathBuf::from(".").read_dir() {
             Ok(read_dir) => read_dir,
             Err(_) => return HashMap::new(),
@@ -311,6 +332,11 @@ impl Ugit {
                 if is_ignored(&path) {
                     continue;
                 }
+
+                let path = match path.strip_prefix(&base) {
+                    Ok(path) => path.to_path_buf(),
+                    Err(_) => path,
+                };
 
                 if path.is_file() {
                     match self.hash_object(&path) {

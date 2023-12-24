@@ -212,13 +212,19 @@ fn status() {
         println!("Merging with {}", ref_value.value);
     }
 
-    let path = PathBuf::from(".");
-    if let Some(tree_map) = ugit.get_tree(&tree_id, &path) {
-        let actions = diff::iter_changed_files(&tree_map, &ugit.get_working_tree());
+    let index_tree = ugit.get_index_tree();
+    if let Some(tree_map) = ugit.get_tree_in_current_dir(&tree_id) {
+        let actions = diff::iter_changed_files(&tree_map, &index_tree);
         println!("\nChanges to be committed:");
         for (path, action) in actions {
             println!("{:>12}: {:?}", action, path);
         }
+    }
+
+    let actions = diff::iter_changed_files(&index_tree, &ugit.get_working_tree());
+    println!("\nChanges not staged for commit:");
+    for (path, action) in actions {
+        println!("{:>12}: {:?}", action, path);
     }
 }
 
