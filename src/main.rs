@@ -45,7 +45,7 @@ fn main() {
         }
         Commands::ReadTree { oid } => {
             let ugit = Ugit::default();
-            ugit.read_tree(&ugit.get_oid(oid));
+            ugit.read_tree(&ugit.get_oid(oid), false);
         }
         Commands::Commit { message } => {
             let ugit = Ugit::default();

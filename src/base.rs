@@ -1,8 +1,8 @@
 use std::{
     collections::{HashMap, HashSet, LinkedList},
     env,
-    fs::{self, File},
-    io::{Error, Write},
+    fs::{self},
+    io::Error,
     path::{Path, PathBuf},
 };
 
@@ -85,33 +85,28 @@ impl Ugit {
         self.get_tree(oid, &path)
     }
 
-    pub fn read_tree(&self, oid: &str) {
+    pub fn read_tree(&self, oid: &str, update_working: bool) {
         match self.get_tree(oid, &PathBuf::from("./")) {
             Some(map) => {
-                for (path, oid) in map {
-                    if let Some(parent) = path.parent() {
-                        if let Err(e) = fs::create_dir_all(parent) {
-                            eprintln!("create dirs error:{:?}", e);
+                match self.get_index() {
+                    Ok(mut index) => {
+                        index.clear();
+                        for (path, oid) in map {
+                            index.insert(path.to_string_lossy().to_string(), oid);
+                        }
+
+                        if let Err(err) = self.write_index(&index) {
+                            eprintln!("read_tree, write_index error:{:?}", err);
+                        }
+
+                        if update_working {
+                            if let Err(err) = self.checkout_index(&index) {
+                                eprintln!("read_tree, checkout_index error:{:?}", err);
+                            }
                         }
                     }
-
-                    match self.get_object(&oid, DataType::None) {
-                        Ok(content) => match File::options()
-                            .write(true)
-                            .create(true)
-                            .truncate(true)
-                            .open(&path)
-                        {
-                            Ok(mut f) => {
-                                if let Err(e) = f.write_all(content.as_bytes()) {
-                                    eprintln!("read_tree write err file:{:?}, oid:{:?}", path, e);
-                                }
-                            }
-                            Err(e) => eprintln!("read_tree open file error:{:?}", e),
-                        },
-                        Err(e) => eprintln!("read_tree err file:{:?}, oid:{:?}", path, e),
-                    }
-                }
+                    Err(err) => eprintln!("read_tree get_index error:{:?}", err),
+                };
             }
             None => eprintln!("tree oid:{}, didn't exit", oid),
         };
@@ -195,7 +190,7 @@ impl Ugit {
                 tree: Some(tree_id),
                 ..
             }) => {
-                self.read_tree(&tree_id);
+                self.read_tree(&tree_id, true);
 
                 let ref_value = if self.is_branch(name) {
                     RefValue {
@@ -340,6 +335,7 @@ impl Ugit {
         t_base: Option<String>,
         t_head: &str,
         t_other: &str,
+        update_working: bool,
     ) -> Result<(), DateErr> {
         let t_base_tree = match t_base.and_then(|t_base| self.get_tree_in_base(&t_base)) {
             Some(tree) => tree,
@@ -362,26 +358,17 @@ impl Ugit {
             Err(err) => return Err(err),
         };
 
-        for (path, content) in merge_tress {
-            if let Some(parent) = path.parent() {
-                if let Err(e) = fs::create_dir_all(parent) {
-                    return Err(DateErr::Io(e));
-                }
-            }
+        let mut index = self.get_index()?;
 
-            match File::options()
-                .write(true)
-                .create(true)
-                .truncate(true)
-                .open(&path)
-            {
-                Ok(mut f) => {
-                    if let Err(e) = f.write_all(content.as_bytes()) {
-                        eprintln!("read_tree_merged write err file:{:?}, oid:{:?}", path, e);
-                    }
-                }
-                Err(e) => eprintln!("read_tree_merged open file error:{:?}", e),
-            }
+        index.clear();
+        for (path, oid) in merge_tress {
+            index.insert(path.to_string_lossy().to_string(), oid);
+        }
+
+        self.write_index(&index)?;
+
+        if update_working {
+            self.checkout_index(&index)?;
         }
 
         Ok(())
@@ -416,7 +403,7 @@ impl Ugit {
             .filter(|merge_base| *merge_base == &head)
             .is_some()
         {
-            self.read_tree(&c_other);
+            self.read_tree(&c_other, true);
             self.update_ref(data::HEAD, RefValue::direct(other.to_string()), true);
             println!("Fast-forward merge, no need to commit");
             return;
@@ -436,7 +423,7 @@ impl Ugit {
 
         self.update_ref(data::MERGE_HEAD, RefValue::direct(other.to_string()), true);
 
-        if let Err(err) = self.read_tree_merged(merge_base, &c_head, &c_other) {
+        if let Err(err) = self.read_tree_merged(merge_base, &c_head, &c_other, true) {
             eprintln!("merge failed err:{:?}", err);
         } else {
             self.update_ref(
@@ -716,6 +703,20 @@ impl Ugit {
             eprintln!("add file, update index error:{:?}", err);
         }
     }
+
+    fn checkout_index(&self, index: &HashMap<String, String>) -> Result<(), DateErr> {
+        for (path, oid) in index {
+            let pathbuf = PathBuf::from(path);
+            if let Some(pathbuf) = pathbuf.parent() {
+                fs::create_dir_all(pathbuf)?;
+            }
+
+            let object = self.get_object(oid, DataType::Blob)?;
+            fs::write(path, object)?;
+        }
+
+        Ok(())
+    }
 }
 
 fn is_ignored(path: &Path) -> bool {
@@ -727,10 +728,4 @@ fn is_ignored(path: &Path) -> bool {
     }
 
     false
-}
-
-#[test]
-fn test() {
-    let ugit = Ugit::default();
-    ugit.write_tree();
 }
