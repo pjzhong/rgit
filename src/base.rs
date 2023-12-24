@@ -596,7 +596,34 @@ impl Ugit {
             .contains(&maybe_ancesotr.to_string())
     }
 
-    pub fn add(&self, filenames: &[String]) {
+    fn add_directory(&self, dir: &str, map: &mut HashMap<String, String>) {
+        let read_dir: fs::ReadDir = match PathBuf::from(dir).read_dir() {
+            Ok(read_dir) => read_dir,
+            Err(err) => {
+                eprintln!("add_directory:{:?} read_dir_err:{:?}", dir, err);
+                return;
+            }
+        };
+
+        let mut dirs = LinkedList::new();
+        dirs.push_back(read_dir);
+        while let Some(read_dir) = dirs.pop_front() {
+            for path in read_dir.filter_map(Result::ok) {
+                let path = path.path();
+                if is_ignored(&path) {
+                    continue;
+                }
+
+                if path.is_file() {
+                    self.add_file(&path.to_string_lossy(), map);
+                } else if let Ok(dir) = path.read_dir() {
+                    dirs.push_back(dir);
+                }
+            }
+        }
+    }
+
+    fn add_file(&self, filename: &str, map: &mut HashMap<String, String>) {
         let cur_dir = match env::current_dir() {
             Ok(cur_dir) => cur_dir,
             Err(err) => {
@@ -605,40 +632,51 @@ impl Ugit {
             }
         };
 
-        let mut map = match self.get_index() {
-            Ok(map) => map,
+        let filename = PathBuf::from(filename);
+        let filename = if filename.is_absolute() {
+            match filename.strip_prefix(&cur_dir) {
+                Ok(filename) => filename.to_path_buf(),
+                Err(err) => {
+                    eprintln!("get relative path error:{:?}", err);
+                    return;
+                }
+            }
+        } else if let Ok(path) = filename.strip_prefix("./") {
+            path.to_path_buf()
+        } else {
+            filename
+        };
+
+        match self.hash_object(&filename) {
+            Ok(oid) => {
+                let filename = filename.to_string_lossy();
+                map.insert(filename.to_string(), oid);
+            }
+            Err(data_type) => {
+                eprintln!("add file:{:?} error:{:?}", filename, data_type);
+            }
+        }
+    }
+
+    pub fn add(&self, filenames: &[String]) {
+        let mut index = match self.get_index() {
+            Ok(index) => index,
             Err(err) => {
-                eprintln!("add file get_index error:{:?}", err);
+                eprintln!("get_index error:{:?}", err);
                 return;
             }
         };
 
         for filename in filenames {
-            let filename = PathBuf::from(filename);
-            let filename = if filename.is_absolute() {
-                match filename.strip_prefix(&cur_dir) {
-                    Ok(filename) => filename.to_path_buf(),
-                    Err(err) => {
-                        eprintln!("get relative path error:{:?}", err);
-                        continue;
-                    }
-                }
+            let path = PathBuf::from(filename);
+            if path.is_file() {
+                self.add_file(filename, &mut index);
             } else {
-                filename
-            };
-
-            match self.hash_object(&filename) {
-                Ok(oid) => {
-                    let filename = filename.to_string_lossy();
-                    map.insert(filename.to_string(), oid);
-                }
-                Err(data_type) => {
-                    eprintln!("add file:{:?} error:{:?}", filename, data_type);
-                }
+                self.add_directory(filename, &mut index);
             }
         }
 
-        if let Err(err) = self.write_index(&map) {
+        if let Err(err) = self.write_index(&index) {
             eprintln!("add file, update index error:{:?}", err);
         }
     }
@@ -661,4 +699,11 @@ fn is_ignored(path: &Path) -> bool {
     }
 
     false
+}
+
+#[test]
+fn test() {
+    let path1 = PathBuf::from("src/base.rs");
+    let path2 = PathBuf::from("./src/base.rs");
+    println!("{:?}", path1 == path2);
 }
